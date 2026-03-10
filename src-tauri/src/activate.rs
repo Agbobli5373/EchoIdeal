@@ -310,7 +310,18 @@ pub async fn deactivate_license_api(app: AppHandle) -> Result<ActivationResponse
 
 #[tauri::command]
 pub async fn validate_license_api(app: AppHandle) -> Result<ValidateResponse, String> {
+    #[cfg(feature = "premium_unlocked")]
+    {
+        let _ = &app;
+        return Ok(ValidateResponse {
+            is_active: true,
+            last_validated_at: None,
+            is_dev_license: false,
+        });
+    }
+
     // Get payment endpoint and API access key from environment
+    #[allow(unreachable_code)]
     let payment_endpoint = get_payment_endpoint()?;
     let api_access_key = get_api_access_key()?;
     let machine_id: String = app.machine_uid().get_machine_uid().unwrap().id.unwrap();

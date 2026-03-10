@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { safeLocalStorage } from "../storage";
-import { STORAGE_KEYS } from "@/config";
+import { STORAGE_KEYS, PREMIUM_FEATURES_ENABLED } from "@/config";
 
 // Helper function to check if EchoIdeal API should be used
 export async function shouldUseEchoIdealAPI(): Promise<boolean> {
@@ -9,6 +9,8 @@ export async function shouldUseEchoIdealAPI(): Promise<boolean> {
     const echoidealApiEnabled =
       safeLocalStorage.getItem(STORAGE_KEYS.ECHOIDEAL_API_ENABLED) === "true";
     if (!echoidealApiEnabled) return false;
+
+    if (PREMIUM_FEATURES_ENABLED) return true;
 
     // Check if license is available
     const hasLicense = await invoke<boolean>("check_license_status");

@@ -24,7 +24,7 @@ export const DashboardLayout = () => {
         {/* Sidebar */}
         <Sidebar />
         {/* Main Content */}
-        <main className="flex flex-1 flex-col overflow-hidden px-8">
+        <main className="flex flex-1 flex-col overflow-hidden px-8 bg-gradient-to-br from-background via-background to-accent/20">
           <Outlet />
         </main>
       </div>

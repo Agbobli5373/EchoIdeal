@@ -7,7 +7,7 @@ import {
 } from "./components";
 import { useApp } from "@/hooks";
 import { useApp as useAppContext } from "@/contexts";
-import { ZapIcon } from "lucide-react";
+import { SparklesIcon } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { ErrorBoundary } from "react-error-boundary";
 import { ErrorLayout } from "@/layouts";
@@ -41,7 +41,7 @@ const App = () => {
           isHidden ? "hidden pointer-events-none" : ""
         }`}
       >
-        <Card className="w-full flex flex-row items-center gap-2 p-2 border-primary/20 shadow-sm shadow-primary/5">
+        <Card className="w-full flex flex-row items-center gap-2 p-2">
           <SystemAudio {...systemAudio} />
           {systemAudio?.capturing ? (
             <div className="flex flex-row items-center gap-2 justify-between w-full">
@@ -70,11 +70,11 @@ const App = () => {
             <Completion isHidden={isHidden} />
             <Button
               size={"icon"}
-              className="cursor-pointer bg-gradient-to-br from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-sm"
+              className="cursor-pointer"
               title="Open Dev Space"
               onClick={openDashboard}
             >
-              <ZapIcon className="h-4 w-4" />
+              <SparklesIcon className="h-4 w-4" />
             </Button>
           </div>
 

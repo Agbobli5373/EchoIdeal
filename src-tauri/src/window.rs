@@ -147,38 +147,6 @@ pub fn move_window(app: tauri::AppHandle, direction: String, step: i32) -> Resul
     Ok(())
 }
 
-#[tauri::command]
-pub fn set_overlay_visibility(app: tauri::AppHandle, visible: bool) -> Result<(), String> {
-    if let Some(window) = app.get_webview_window("main") {
-        if visible {
-            window
-                .show()
-                .map_err(|e| format!("Failed to show overlay: {}", e))?;
-
-            #[cfg(target_os = "macos")]
-            {
-                if let Some(panel) = app.get_webview_panel("main") {
-                    panel.show();
-                }
-            }
-        } else {
-            #[cfg(target_os = "macos")]
-            {
-                if let Some(panel) = app.get_webview_panel("main") {
-                    let _ = panel.hide();
-                }
-            }
-
-            window
-                .hide()
-                .map_err(|e| format!("Failed to hide overlay: {}", e))?;
-        }
-    } else {
-        return Err("Main window not found".to_string());
-    }
-    Ok(())
-}
-
 pub fn create_dashboard_window<R: Runtime>(
     app: &AppHandle<R>,
 ) -> Result<WebviewWindow<R>, tauri::Error> {

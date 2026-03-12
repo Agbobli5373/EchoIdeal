@@ -13,7 +13,6 @@ import {
   updateAppIconVisibility,
   updateAlwaysOnTop,
   updateAutostart,
-  updateOverlayVisibility,
   CustomizableState,
   DEFAULT_CUSTOMIZABLE_STATE,
   CursorType,
@@ -366,9 +365,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           invoke("set_always_on_top", {
             enabled: customizable.alwaysOnTop.isEnabled,
           }),
-          invoke("set_overlay_visibility", {
-            visible: customizable.overlay?.isVisible ?? false,
-          }),
         ]);
       } catch (error) {
         console.error("Failed to apply customizable settings:", error);
@@ -617,19 +613,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const toggleOverlayVisibility = async (isVisible: boolean) => {
-    const newState = updateOverlayVisibility(isVisible);
-    setCustomizable(newState);
-    try {
-      await invoke("set_overlay_visibility", { visible: isVisible });
-      loadData();
-    } catch (error) {
-      console.error("Failed to toggle overlay visibility:", error);
-      const revertedState = updateOverlayVisibility(!isVisible);
-      setCustomizable(revertedState);
-    }
-  };
-
   const setCursorType = (type: CursorType) => {
     setCustomizable((prev) => ({ ...prev, cursor: { type } }));
     updateCursor(type);
@@ -693,7 +676,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     toggleAppIconVisibility,
     toggleAlwaysOnTop,
     toggleAutostart,
-    toggleOverlayVisibility,
     loadData,
     echoidealApiEnabled,
     setEchoIdealApiEnabled,

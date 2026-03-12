@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ScrollArea, Button } from "@/components";
+import { ScrollArea, Button, Input } from "@/components";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Meeting,
@@ -8,8 +8,10 @@ import {
   getMeetingById,
   getSegmentsByMeetingId,
   endMeeting,
+  addTranscriptSegment,
 } from "@/lib/database/meetings.action";
 import { TranscriptSegmentItem } from "./TranscriptSegmentItem";
+import { MicTranscriber } from "./MicTranscriber";
 import { useLiveTranscription } from "@/hooks/useLiveTranscription";
 import {
   ArrowLeftIcon,
@@ -21,6 +23,7 @@ import {
   MicOffIcon,
   SquareIcon,
   RadioIcon,
+  UsersIcon,
 } from "lucide-react";
 
 function formatDuration(startMs: number, endMs: number | null): string {
@@ -56,8 +59,14 @@ const MeetingView = () => {
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [timer, setTimer] = useState("00:00");
+  const [speakerNames, setSpeakerNames] = useState<Record<string, string>>({
+    You: "You",
+    Them: "Them",
+  });
+  const [showSpeakerEdit, setShowSpeakerEdit] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef(true);
+  const meetingStartRef = useRef(0);
 
   const {
     isTranscribing,
@@ -74,6 +83,7 @@ const MeetingView = () => {
       const m = await getMeetingById(meetingId);
       setMeeting(m);
       if (m) {
+        meetingStartRef.current = m.startedAt;
         const segs = await getSegmentsByMeetingId(meetingId);
         setSegments(segs);
       }
@@ -81,6 +91,37 @@ const MeetingView = () => {
     };
     load();
   }, [meetingId]);
+
+  const handleMicTranscription = useCallback(
+    async (text: string) => {
+      if (!meetingId) return;
+      const id = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+      const startTimeMs = Date.now() - meetingStartRef.current;
+      const segment: TranscriptSegment = {
+        id,
+        meetingId,
+        speaker: "You",
+        content: text,
+        startTimeMs,
+        endTimeMs: Date.now() - meetingStartRef.current,
+        confidence: null,
+        isFinal: true,
+        createdAt: Date.now(),
+      };
+      await addTranscriptSegment({
+        id: segment.id,
+        meetingId: segment.meetingId,
+        speaker: segment.speaker,
+        content: segment.content,
+        startTimeMs: segment.startTimeMs,
+        endTimeMs: segment.endTimeMs,
+        confidence: null,
+        isFinal: true,
+      });
+      setSegments((prev) => [...prev, segment]);
+    },
+    [meetingId]
+  );
 
   useEffect(() => {
     if (!meeting || meeting.status !== "active") return;
@@ -237,8 +278,66 @@ const MeetingView = () => {
           </div>
         )}
 
+        {showSpeakerEdit && (
+          <div className="mx-11 mt-2 p-3 rounded-lg border border-border/50 bg-card/50 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+                <UsersIcon className="size-3" />
+                Rename Speakers
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 text-[10px]"
+                onClick={() => setShowSpeakerEdit(false)}
+              >
+                Done
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {Object.entries(speakerNames).map(([key, name]) => (
+                <div key={key} className="flex items-center gap-2">
+                  <span className="text-[10px] text-muted-foreground w-8 shrink-0">
+                    {key}:
+                  </span>
+                  <Input
+                    value={name}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setSpeakerNames((prev) => ({
+                        ...prev,
+                        [key]: e.target.value || key,
+                      }))
+                    }
+                    className="h-7 text-xs"
+                    placeholder={key}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {isActive && !showSpeakerEdit && segments.length > 0 && (
+          <div className="mx-11 mt-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 text-[10px] text-muted-foreground gap-1"
+              onClick={() => setShowSpeakerEdit(true)}
+            >
+              <UsersIcon className="size-3" />
+              Rename speakers
+            </Button>
+          </div>
+        )}
+
         <div className="border-b border-input/50 mt-3" />
       </header>
+
+      <MicTranscriber
+        isActive={isTranscribing}
+        onTranscription={handleMicTranscription}
+      />
 
       <Tabs defaultValue="transcript" className="flex-1 flex flex-col mt-2">
         <TabsList className="w-fit">
@@ -292,7 +391,13 @@ const MeetingView = () => {
             ) : (
               <div className="flex flex-col divide-y divide-border/30 py-2">
                 {segments.map((seg) => (
-                  <TranscriptSegmentItem key={seg.id} segment={seg} />
+                  <TranscriptSegmentItem
+                    key={seg.id}
+                    segment={{
+                      ...seg,
+                      speaker: speakerNames[seg.speaker] || seg.speaker,
+                    }}
+                  />
                 ))}
                 {isTranscribing && (
                   <div className="flex items-center gap-2 py-3 text-xs text-muted-foreground/60">

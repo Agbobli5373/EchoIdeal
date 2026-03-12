@@ -15,6 +15,9 @@ export interface CustomizableState {
   cursor: {
     type: CursorType;
   };
+  screenShareVisible: {
+    isEnabled: boolean;
+  };
 }
 
 export const DEFAULT_CUSTOMIZABLE_STATE: CustomizableState = {
@@ -22,6 +25,7 @@ export const DEFAULT_CUSTOMIZABLE_STATE: CustomizableState = {
   alwaysOnTop: { isEnabled: false },
   autostart: { isEnabled: true },
   cursor: { type: "invisible" },
+  screenShareVisible: { isEnabled: false },
 };
 
 /**
@@ -42,6 +46,8 @@ export const getCustomizableState = (): CustomizableState => {
         parsedState.alwaysOnTop || DEFAULT_CUSTOMIZABLE_STATE.alwaysOnTop,
       autostart: parsedState.autostart || DEFAULT_CUSTOMIZABLE_STATE.autostart,
       cursor: parsedState.cursor || DEFAULT_CUSTOMIZABLE_STATE.cursor,
+      screenShareVisible:
+        parsedState.screenShareVisible || DEFAULT_CUSTOMIZABLE_STATE.screenShareVisible,
     };
   } catch (error) {
     console.error("Failed to get customizable state:", error);
@@ -98,6 +104,16 @@ export const updateCursorType = (type: CursorType): CustomizableState => {
 export const updateAutostart = (isEnabled: boolean): CustomizableState => {
   const currentState = getCustomizableState();
   const newState = { ...currentState, autostart: { isEnabled } };
+  setCustomizableState(newState);
+  return newState;
+};
+
+/**
+ * Update screen share visibility (content protection toggle)
+ */
+export const updateScreenShareVisibility = (isEnabled: boolean): CustomizableState => {
+  const currentState = getCustomizableState();
+  const newState = { ...currentState, screenShareVisible: { isEnabled } };
   setCustomizableState(newState);
   return newState;
 };

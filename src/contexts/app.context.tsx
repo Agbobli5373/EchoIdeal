@@ -13,6 +13,7 @@ import {
   updateAppIconVisibility,
   updateAlwaysOnTop,
   updateAutostart,
+  updateScreenShareVisibility,
   CustomizableState,
   DEFAULT_CUSTOMIZABLE_STATE,
   CursorType,
@@ -365,6 +366,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           invoke("set_always_on_top", {
             enabled: customizable.alwaysOnTop.isEnabled,
           }),
+          invoke("set_screen_share_visibility", {
+            visible: customizable.screenShareVisible?.isEnabled ?? false,
+          }),
         ]);
       } catch (error) {
         console.error("Failed to apply customizable settings:", error);
@@ -613,6 +617,19 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const toggleScreenShareVisibility = async (isEnabled: boolean) => {
+    const newState = updateScreenShareVisibility(isEnabled);
+    setCustomizable(newState);
+    try {
+      await invoke("set_screen_share_visibility", { visible: isEnabled });
+      loadData();
+    } catch (error) {
+      console.error("Failed to toggle screen share visibility:", error);
+      const revertedState = updateScreenShareVisibility(!isEnabled);
+      setCustomizable(revertedState);
+    }
+  };
+
   const setCursorType = (type: CursorType) => {
     setCustomizable((prev) => ({ ...prev, cursor: { type } }));
     updateCursor(type);
@@ -676,6 +693,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     toggleAppIconVisibility,
     toggleAlwaysOnTop,
     toggleAutostart,
+    toggleScreenShareVisibility,
     loadData,
     echoidealApiEnabled,
     setEchoIdealApiEnabled,

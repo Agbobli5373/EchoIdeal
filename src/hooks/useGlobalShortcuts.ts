@@ -8,6 +8,7 @@ let globalEventListeners: {
   focus?: UnlistenFn;
   audio?: UnlistenFn;
   screenshot?: UnlistenFn;
+  screenshotAnalyze?: UnlistenFn;
   systemAudio?: UnlistenFn;
   customShortcut?: UnlistenFn;
   registrationError?: UnlistenFn;
@@ -20,6 +21,7 @@ let lastScreenshotEventTime = 0;
 let globalInputRef: HTMLInputElement | null = null;
 let globalAudioCallback: (() => void) | null = null;
 let globalScreenshotCallback: (() => void | Promise<void>) | null = null;
+let globalScreenshotAnalyzeCallback: (() => void | Promise<void>) | null = null;
 let globalSystemAudioCallback: (() => void) | null = null;
 let globalCustomShortcutCallbacks: Map<string, () => void> = new Map();
 
@@ -83,6 +85,14 @@ export const useGlobalShortcuts = () => {
     (callback: () => void | Promise<void>) => {
       screenshotCallbackRef.current = callback;
       globalScreenshotCallback = callback;
+    },
+    []
+  );
+
+  // Register screenshot analyze callback
+  const registerScreenshotAnalyzeCallback = useCallback(
+    (callback: () => void | Promise<void>) => {
+      globalScreenshotAnalyzeCallback = callback;
     },
     []
   );
@@ -212,6 +222,21 @@ export const useGlobalShortcuts = () => {
         });
         globalEventListeners.screenshot = unlistenScreenshot;
 
+        // Listen for screenshot-analyze trigger event
+        const unlistenScreenshotAnalyze = await listen(
+          "trigger-screenshot-analyze",
+          () => {
+            if (globalScreenshotAnalyzeCallback) {
+              Promise.resolve(globalScreenshotAnalyzeCallback()).catch(
+                (error) => {
+                  console.error("Screenshot analyze callback failed:", error);
+                }
+              );
+            }
+          }
+        );
+        globalEventListeners.screenshotAnalyze = unlistenScreenshotAnalyze;
+
         // Listen for system audio toggle event
         const unlistenSystemAudio = await listen("toggle-system-audio", () => {
           if (globalSystemAudioCallback) {
@@ -262,6 +287,7 @@ export const useGlobalShortcuts = () => {
     registerInputRef,
     registerAudioCallback,
     registerScreenshotCallback,
+    registerScreenshotAnalyzeCallback,
     registerSystemAudioCallback,
     registerCustomShortcutCallback,
     unregisterCustomShortcutCallback,

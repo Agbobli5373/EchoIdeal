@@ -71,4 +71,14 @@ export const DEFAULT_SHORTCUT_ACTIONS: ShortcutAction[] = [
       linux: "ctrl+shift+s",
     },
   },
+  {
+    id: "screenshot_analyze",
+    name: "Screenshot & Analyze",
+    description: "Capture screenshot and send directly to AI",
+    defaultKey: {
+      macos: "cmd+shift+e",
+      windows: "ctrl+shift+e",
+      linux: "ctrl+shift+e",
+    },
+  },
 ];

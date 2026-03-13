@@ -108,6 +108,7 @@ pub fn handle_shortcut_action<R: Runtime>(app: &AppHandle<R>, action_id: &str) {
         "move_window_right" => handle_move_window(app, "right"),
         "audio_recording" => handle_audio_shortcut(app),
         "screenshot" => handle_screenshot_shortcut(app),
+        "screenshot_analyze" => handle_screenshot_analyze_shortcut(app),
         "system_audio" => handle_system_audio_shortcut(app),
         custom_action => {
             // Emit custom action event for frontend to handle
@@ -279,6 +280,15 @@ fn handle_screenshot_shortcut<R: Runtime>(app: &AppHandle<R>) {
         // Emit event to trigger screenshot - frontend will determine auto/manual mode
         if let Err(e) = window.emit("trigger-screenshot", json!({})) {
             eprintln!("Failed to emit screenshot event: {}", e);
+        }
+    }
+}
+
+/// Handle screenshot & analyze shortcut — capture and send directly to AI
+fn handle_screenshot_analyze_shortcut<R: Runtime>(app: &AppHandle<R>) {
+    if let Some(window) = app.get_webview_window("main") {
+        if let Err(e) = window.emit("trigger-screenshot-analyze", json!({})) {
+            eprintln!("Failed to emit screenshot-analyze event: {}", e);
         }
     }
 }

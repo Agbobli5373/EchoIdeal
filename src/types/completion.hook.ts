@@ -125,6 +125,10 @@ export interface UseCompletionReturn {
   inputRef: RefObject<HTMLInputElement | null>;
   /** Function to capture a screenshot */
   captureScreenshot: () => Promise<void>;
+  /** Capture a screenshot and send it directly to AI for analysis */
+  captureAndAnalyze: () => Promise<void>;
+  /** Send currently attached files to AI without needing text input */
+  sendAttachedFiles: () => void;
   /** Whether a screenshot is currently loading */
   isScreenshotLoading: boolean;
 }

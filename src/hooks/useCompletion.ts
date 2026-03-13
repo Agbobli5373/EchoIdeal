@@ -137,14 +137,22 @@ export const useCompletion = () => {
     async (speechText?: string) => {
       const input = speechText || state.input;
 
-      if (!input.trim()) {
+      const hasFiles = state.attachedFiles.length > 0;
+      if (!input.trim() && !hasFiles) {
         return;
       }
+
+      const effectiveInput = input.trim() || (hasFiles ? "Analyze this" : "");
 
       if (speechText) {
         setState((prev) => ({
           ...prev,
           input: speechText,
+        }));
+      } else if (!input.trim() && hasFiles) {
+        setState((prev) => ({
+          ...prev,
+          input: effectiveInput,
         }));
       }
 
@@ -215,7 +223,7 @@ export const useCompletion = () => {
             selectedProvider: selectedAIProvider,
             systemPrompt: systemPrompt || undefined,
             history: messageHistory,
-            userMessage: input,
+            userMessage: effectiveInput,
             imagesBase64,
             signal,
           })) {
@@ -916,6 +924,32 @@ export const useCompletion = () => {
     }
   }, [handleScreenshotSubmit]);
 
+  const captureAndAnalyze = useCallback(async () => {
+    setIsScreenshotLoading(true);
+    try {
+      const base64 = await invoke("capture_to_base64");
+      if (base64) {
+        await handleScreenshotSubmit(
+          base64 as string,
+          "Analyze this screenshot and provide insights"
+        );
+      }
+    } catch (error) {
+      setState((prev) => ({
+        ...prev,
+        error: "Failed to capture screenshot for analysis.",
+      }));
+    } finally {
+      setIsScreenshotLoading(false);
+    }
+  }, [handleScreenshotSubmit]);
+
+  const sendAttachedFiles = useCallback(() => {
+    if (state.attachedFiles.length > 0) {
+      submit();
+    }
+  }, [state.attachedFiles, submit]);
+
   useEffect(() => {
     let unlisten: any;
 
@@ -995,12 +1029,15 @@ export const useCompletion = () => {
     globalShortcuts.registerAudioCallback(toggleRecording);
     globalShortcuts.registerInputRef(inputRef.current);
     globalShortcuts.registerScreenshotCallback(captureScreenshot);
+    globalShortcuts.registerScreenshotAnalyzeCallback(captureAndAnalyze);
   }, [
     globalShortcuts.registerAudioCallback,
     globalShortcuts.registerInputRef,
     globalShortcuts.registerScreenshotCallback,
+    globalShortcuts.registerScreenshotAnalyzeCallback,
     toggleRecording,
     captureScreenshot,
+    captureAndAnalyze,
     inputRef,
   ]);
 
@@ -1043,6 +1080,8 @@ export const useCompletion = () => {
     onRemoveAllFiles,
     inputRef,
     captureScreenshot,
+    captureAndAnalyze,
+    sendAttachedFiles,
     isScreenshotLoading,
     keepEngaged,
     setKeepEngaged,

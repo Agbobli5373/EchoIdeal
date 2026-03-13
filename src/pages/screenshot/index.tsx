@@ -1,4 +1,4 @@
-import { ScreenshotConfigs } from "./components";
+import { ScreenshotConfigs, AnalyzePromptConfig } from "./components";
 import { useSettings } from "@/hooks";
 import { PageLayout } from "@/layouts";
 
@@ -9,6 +9,9 @@ const Settings = () => {
       title="Screenshot"
       description="Manage your screenshot settings"
     >
+      {/* Screenshot & Analyze Prompt */}
+      <AnalyzePromptConfig />
+
       {/* Screenshot Configs */}
       <ScreenshotConfigs {...settings} />
     </PageLayout>

@@ -142,7 +142,17 @@ export const useCompletion = () => {
         return;
       }
 
-      const effectiveInput = input.trim() || (hasFiles ? "Analyze this" : "");
+      let effectiveInput = input.trim();
+      if (!effectiveInput && hasFiles) {
+        try {
+          const { getScreenshotAnalyzePrompt } = await import(
+            "@/lib/storage/screenshot-analyze.storage"
+          );
+          effectiveInput = getScreenshotAnalyzePrompt();
+        } catch {
+          effectiveInput = "Analyze this";
+        }
+      }
 
       if (speechText) {
         setState((prev) => ({
@@ -927,12 +937,13 @@ export const useCompletion = () => {
   const captureAndAnalyze = useCallback(async () => {
     setIsScreenshotLoading(true);
     try {
+      const { getScreenshotAnalyzePrompt } = await import(
+        "@/lib/storage/screenshot-analyze.storage"
+      );
+      const prompt = getScreenshotAnalyzePrompt();
       const base64 = await invoke("capture_to_base64");
       if (base64) {
-        await handleScreenshotSubmit(
-          base64 as string,
-          "Analyze this screenshot and provide insights"
-        );
+        await handleScreenshotSubmit(base64 as string, prompt);
       }
     } catch (error) {
       setState((prev) => ({

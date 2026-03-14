@@ -18,6 +18,7 @@
     "prisma:studio": "prisma studio",
     "license:create:dev": "npm run build && node dist/src/scripts/create-dev-license.js",
     "license:create:paid": "npm run build && node dist/src/scripts/create-paid-license.js",
+    "check-endpoints": "node dist/src/scripts/check-endpoints.js",
     "test": "vitest run"
   },
   "prisma": {

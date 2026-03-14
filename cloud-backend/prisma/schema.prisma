@@ -1,0 +1,181 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum LicenseType {
+  paid
+  dev
+
+  @@map("license_type")
+}
+
+enum LicenseStatus {
+  active
+  revoked
+  past_due
+  canceled
+
+  @@map("license_status")
+}
+
+model Customer {
+  id               String    @id @default(cuid())
+  stripeCustomerId String?   @unique @map("stripe_customer_id")
+  email            String?
+  createdAt        DateTime  @default(now()) @map("created_at")
+
+  licenses License[]
+
+  @@map("customers")
+}
+
+model Plan {
+  id                             String   @id @default(cuid())
+  name                           String   @unique
+  monthlyTokenQuota              Int      @map("monthly_token_quota")
+  monthlyTranscriptionSecondsQuota Int    @map("monthly_transcription_seconds_quota")
+  maxActiveMachines              Int      @map("max_active_machines")
+  createdAt                      DateTime @default(now()) @map("created_at")
+
+  licenses License[]
+
+  @@map("plans")
+}
+
+model License {
+  id             String       @id @default(cuid())
+  licenseKeyHash String       @unique @map("license_key_hash")
+  licenseKeyLast4 String      @map("license_key_last4")
+  type           LicenseType
+  status         LicenseStatus
+
+  customerId String?   @map("customer_id")
+  customer   Customer? @relation(fields: [customerId], references: [id])
+
+  planId String @map("plan_id")
+  plan   Plan   @relation(fields: [planId], references: [id])
+
+  stripeSubscriptionId String?  @unique @map("stripe_subscription_id")
+  currentPeriodStart   DateTime? @map("current_period_start")
+  currentPeriodEnd     DateTime? @map("current_period_end")
+
+  createdAt DateTime  @default(now()) @map("created_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  instances   Instance[]
+  usageEvents UsageEvent[]
+  usageTotals UsageTotal[]
+  errorEvents ErrorEvent[]
+
+  @@map("licenses")
+}
+
+model Machine {
+  id          String   @id @default(cuid())
+  machineId   String   @unique @map("machine_id")
+  firstSeenAt DateTime @default(now()) @map("first_seen_at")
+  lastSeenAt  DateTime @default(now()) @map("last_seen_at")
+
+  instances Instance[]
+
+  @@map("machines")
+}
+
+model Instance {
+  id           String   @id
+  name         String?
+  licenseId    String   @map("license_id")
+  license      License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  machineId    String   @map("machine_id")
+  machine      Machine  @relation(fields: [machineId], references: [machineId], onDelete: Restrict)
+  appVersion   String?  @map("app_version")
+  createdAt    DateTime @default(now()) @map("created_at")
+  deactivatedAt DateTime? @map("deactivated_at")
+
+  @@index([licenseId])
+  @@index([machineId])
+  @@map("instances")
+}
+
+model UsageEvent {
+  id                  String   @id @default(cuid())
+  licenseId            String   @map("license_id")
+  license              License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  machineId            String   @map("machine_id")
+  instanceId           String?  @map("instance_id")
+  aiModel              String?  @map("ai_model")
+  promptTokens         Int?     @map("prompt_tokens")
+  completionTokens     Int?     @map("completion_tokens")
+  totalTokens          Int?     @map("total_tokens")
+  transcriptionSeconds Int?     @map("transcription_seconds")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  @@index([licenseId, createdAt])
+  @@index([machineId, createdAt])
+  @@map("usage_events")
+}
+
+model UsageTotal {
+  licenseId               String   @map("license_id")
+  license                 License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  periodStart             DateTime @map("period_start")
+  periodEnd               DateTime @map("period_end")
+  usedTokens              Int      @default(0) @map("used_tokens")
+  usedTranscriptionSeconds Int     @default(0) @map("used_transcription_seconds")
+  updatedAt               DateTime @default(now()) @map("updated_at")
+
+  @@id([licenseId, periodStart])
+  @@map("usage_totals")
+}
+
+model ErrorEvent {
+  id           String   @id @default(cuid())
+  licenseId    String?  @map("license_id")
+  license      License? @relation(fields: [licenseId], references: [id], onDelete: SetNull)
+  machineId    String?  @map("machine_id")
+  instanceId   String?  @map("instance_id")
+  endpoint     String
+  model        String?
+  provider     String?
+  appVersion   String?  @map("app_version")
+  errorMessage String   @map("error_message")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@map("error_events")
+}
+
+model ModelCatalog {
+  id          String   @id @default(cuid())
+  provider    String
+  name        String
+  model       String   @unique
+  description String
+  modality    String
+  isAvailable Boolean  @default(true) @map("is_available")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @map("updated_at")
+
+  prompts PromptCatalog[]
+
+  @@map("model_catalog")
+}
+
+model PromptCatalog {
+  id        String      @id @default(cuid())
+  title     String      @unique
+  prompt    String
+  modelId   String      @map("model_id")
+  model     ModelCatalog @relation(fields: [modelId], references: [id], onDelete: Restrict)
+  isActive  Boolean     @default(true) @map("is_active")
+  createdAt DateTime    @default(now()) @map("created_at")
+  updatedAt DateTime    @default(now()) @map("updated_at")
+
+  @@index([isActive])
+  @@map("prompt_catalog")
+}

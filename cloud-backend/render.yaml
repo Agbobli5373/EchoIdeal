@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: echoideal-cloud-backend
+    env: docker
+    dockerfilePath: ./Dockerfile
+    autoDeploy: true
+    envVars:
+      - key: PORT
+        value: 8787
+

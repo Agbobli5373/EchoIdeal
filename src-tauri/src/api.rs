@@ -80,6 +80,16 @@ pub async fn get_stored_credentials(
     Ok((license_key, instance_id, selected_model))
 }
 
+#[tauri::command]
+pub async fn clear_license(app: AppHandle) -> Result<(), String> {
+    let storage_path = get_secure_storage_path(&app)?;
+    if storage_path.exists() {
+        fs::remove_file(&storage_path)
+            .map_err(|e| format!("Failed to remove license file: {}", e))?;
+    }
+    Ok(())
+}
+
 // Audio API Structs
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AudioResponse {

@@ -1,55 +1,45 @@
 import type { FastifyPluginAsync } from "fastify";
-import { startOfUtcMonth, endOfUtcMonth } from "../lib/period.js";
 import { wavDurationSeconds } from "../lib/wav.js";
+import {
+  getQuotaContext,
+  recordChatUsage,
+  recordTranscribeUsage,
+} from "../services/proxy.js";
 import type { Env } from "../env.js";
 
-async function verifyJwt(req: any, reply: any) {
+async function verifyJwt(req: unknown, reply: unknown) {
+  const r = req as { jwtVerify: () => Promise<void> };
+  const rep = reply as { code: (n: number) => { send: (body: object) => unknown } };
   try {
-    await req.jwtVerify();
+    await r.jwtVerify();
   } catch {
-    return reply.code(401).send({ error: "Unauthorized" });
+    return rep.code(401).send({ error: "Unauthorized" });
   }
 }
 
-async function getQuotaContext(app: any, licenseId: string) {
-  const license = await app.prisma.license.findUnique({
-    where: { id: licenseId },
-    include: { plan: true },
-  });
-  if (!license) return { ok: false as const, error: "Invalid license" };
-  if (license.status !== "active") return { ok: false as const, error: "License inactive" };
-  if (license.type === "dev") return { ok: false as const, error: "Hosted API not available for dev licenses" };
-
-  const now = new Date();
-  const periodStart = license.currentPeriodStart ?? startOfUtcMonth(now);
-  const periodEnd = license.currentPeriodEnd ?? endOfUtcMonth(now);
-  const usageTotal = await app.prisma.usageTotal.upsert({
-    where: { licenseId_periodStart: { licenseId: license.id, periodStart } },
-    update: { periodEnd },
-    create: { licenseId: license.id, periodStart, periodEnd },
-  });
-
-  return { ok: true as const, license, plan: license.plan, periodStart, periodEnd, usageTotal };
-}
-
 export const proxyRoutes: FastifyPluginAsync<{ env: Env }> = async (app, opts) => {
+  const getProxyDeps = () => ({
+    prisma: app.prisma,
+    env: opts.env,
+  });
+
   app.post(
     "/api/chat",
     { preHandler: verifyJwt },
     async (req, reply) => {
-      const claims = (req.user ?? {}) as any;
+      const claims = ((req as { user?: unknown }).user ?? {}) as Record<string, unknown>;
       const licenseId = claims.license_id as string | undefined;
-      const instanceId = claims.instance_id;
-      const machineId = claims.machine_id;
+      const instanceId = claims.instance_id as string | undefined;
+      const machineId = claims.machine_id as string | undefined;
       const allowedModels: string[] = Array.isArray(claims.allowed_models)
-        ? claims.allowed_models
+        ? (claims.allowed_models as string[])
         : [];
 
       if (!licenseId || !instanceId || !machineId) {
         return reply.code(401).send({ error: "Unauthorized" });
       }
 
-      const quota = await getQuotaContext(app, licenseId);
+      const quota = await getQuotaContext(getProxyDeps(), licenseId);
       if (!quota.ok) return reply.code(403).send({ error: quota.error });
 
       if (quota.usageTotal.usedTokens >= quota.plan.monthlyTokenQuota) {
@@ -57,28 +47,40 @@ export const proxyRoutes: FastifyPluginAsync<{ env: Env }> = async (app, opts) =
       }
 
       const instance = await app.prisma.instance.findFirst({
-        where: { id: instanceId, licenseId: quota.license.id, machineId, deactivatedAt: null },
+        where: {
+          id: instanceId,
+          licenseId: quota.license.id,
+          machineId,
+          deactivatedAt: null,
+        },
       });
-      if (!instance) return reply.code(403).send({ error: "Instance not activated" });
+      if (!instance)
+        return reply.code(403).send({ error: "Instance not activated" });
 
       if (!opts.env.OPENAI_API_KEY) {
         return reply.code(500).send({ error: "OpenAI is not configured" });
       }
 
-      const body = (req.body ?? {}) as any;
+      const body = ((req as { body?: unknown }).body ?? {}) as Record<string, unknown>;
       const requestedModel = String(body.model ?? "");
-      if (!requestedModel || (allowedModels.length && !allowedModels.includes(requestedModel))) {
+      if (
+        !requestedModel ||
+        (allowedModels.length > 0 && !allowedModels.includes(requestedModel))
+      ) {
         return reply.code(400).send({ error: "Model not allowed" });
       }
 
       const upstreamBody = {
         ...body,
         stream: true,
-        stream_options: { include_usage: true, ...(body.stream_options ?? {}) },
+        stream_options: { include_usage: true, ...(body.stream_options as object ?? {}) },
       };
 
       const ac = new AbortController();
-      req.raw.on("close", () => ac.abort());
+      (req as { raw: { on: (e: string, fn: () => void) => void } }).raw.on(
+        "close",
+        () => ac.abort()
+      );
 
       const upstream = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -105,7 +107,12 @@ export const proxyRoutes: FastifyPluginAsync<{ env: Env }> = async (app, opts) =
 
       const decoder = new TextDecoder();
       let buffer = "";
-      let usage: any = null;
+      type UsageShape = {
+        total_tokens?: number;
+        prompt_tokens?: number;
+        completion_tokens?: number;
+      };
+      let usage: UsageShape | null = null;
 
       try {
         const reader = upstream.body.getReader();
@@ -113,10 +120,8 @@ export const proxyRoutes: FastifyPluginAsync<{ env: Env }> = async (app, opts) =
           const { done, value } = await reader.read();
           if (done) break;
           if (value) {
-            // Forward raw bytes for exact SSE compatibility.
             reply.raw.write(Buffer.from(value));
 
-            // Parse lines to capture usage.
             buffer += decoder.decode(value, { stream: true });
             const lines = buffer.split("\n");
             buffer = lines.pop() ?? "";
@@ -128,10 +133,10 @@ export const proxyRoutes: FastifyPluginAsync<{ env: Env }> = async (app, opts) =
               if (jsonStr === "[DONE]") continue;
               if (!jsonStr) continue;
               try {
-                const parsed = JSON.parse(jsonStr);
+                const parsed = JSON.parse(jsonStr) as { usage?: unknown };
                 const u = parsed?.usage;
                 if (u && typeof u === "object" && !Array.isArray(u)) {
-                  usage = u;
+                  usage = u as UsageShape;
                 }
               } catch {
                 // ignore parse errors while streaming
@@ -150,30 +155,17 @@ export const proxyRoutes: FastifyPluginAsync<{ env: Env }> = async (app, opts) =
           typeof usage.completion_tokens === "number"
             ? usage.completion_tokens
             : null;
-        const totalTokens = usage.total_tokens;
 
-        await app.prisma.$transaction([
-          app.prisma.usageEvent.create({
-            data: {
-              licenseId: quota.license.id,
-              machineId,
-              instanceId,
-              aiModel: requestedModel,
-              promptTokens: promptTokens ?? undefined,
-              completionTokens: completionTokens ?? undefined,
-              totalTokens,
-            },
-          }),
-          app.prisma.usageTotal.update({
-            where: {
-              licenseId_periodStart: {
-                licenseId: quota.license.id,
-                periodStart: quota.periodStart,
-              },
-            },
-            data: { usedTokens: { increment: totalTokens }, updatedAt: new Date() },
-          }),
-        ]);
+        await recordChatUsage(getProxyDeps(), {
+          licenseId: quota.license.id,
+          machineId,
+          instanceId,
+          periodStart: quota.periodStart,
+          aiModel: requestedModel,
+          promptTokens,
+          completionTokens,
+          totalTokens: usage.total_tokens,
+        });
       }
     }
   );
@@ -182,27 +174,34 @@ export const proxyRoutes: FastifyPluginAsync<{ env: Env }> = async (app, opts) =
     "/api/transcribe",
     { preHandler: verifyJwt },
     async (req, reply) => {
-      const claims = (req.user ?? {}) as any;
+      const claims = ((req as { user?: unknown }).user ?? {}) as Record<string, unknown>;
       const licenseId = claims.license_id as string | undefined;
-      const instanceId = claims.instance_id;
-      const machineId = claims.machine_id;
+      const instanceId = claims.instance_id as string | undefined;
+      const machineId = claims.machine_id as string | undefined;
+
       if (!licenseId || !instanceId || !machineId) {
         return reply.code(401).send({ error: "Unauthorized" });
       }
 
-      const quota = await getQuotaContext(app, licenseId);
+      const quota = await getQuotaContext(getProxyDeps(), licenseId);
       if (!quota.ok) return reply.code(403).send({ error: quota.error });
 
       const instance = await app.prisma.instance.findFirst({
-        where: { id: instanceId, licenseId: quota.license.id, machineId, deactivatedAt: null },
+        where: {
+          id: instanceId,
+          licenseId: quota.license.id,
+          machineId,
+          deactivatedAt: null,
+        },
       });
-      if (!instance) return reply.code(403).send({ error: "Instance not activated" });
+      if (!instance)
+        return reply.code(403).send({ error: "Instance not activated" });
 
       if (!opts.env.OPENAI_API_KEY) {
         return reply.code(500).send({ error: "OpenAI is not configured" });
       }
 
-      const file = await (req as any).file();
+      const file = await (req as { file: () => Promise<{ toBuffer: () => Promise<Buffer>; mimetype?: string; filename?: string; fields?: { model?: { value?: string } } }> }).file();
       if (!file) return reply.code(400).send({ error: "Missing file" });
 
       const buf: Buffer = await file.toBuffer();
@@ -222,7 +221,7 @@ export const proxyRoutes: FastifyPluginAsync<{ env: Env }> = async (app, opts) =
       const form = new FormData();
       form.append(
         "file",
-        new Blob([buf], { type: file.mimetype || "audio/wav" }),
+        new Blob([new Uint8Array(buf)], { type: file.mimetype || "audio/wav" }),
         file.filename || "audio.wav"
       );
       form.append("model", requestedModel);
@@ -234,7 +233,7 @@ export const proxyRoutes: FastifyPluginAsync<{ env: Env }> = async (app, opts) =
           headers: {
             Authorization: `Bearer ${opts.env.OPENAI_API_KEY}`,
           },
-          body: form as any,
+          body: form as unknown as BodyInit,
         }
       );
 
@@ -243,35 +242,22 @@ export const proxyRoutes: FastifyPluginAsync<{ env: Env }> = async (app, opts) =
         return reply.code(502).send({ error: text || "Upstream error" });
       }
 
-      const json: any = await upstream.json();
+      const json = (await upstream.json()) as { text?: string };
       const text = json?.text;
 
       if (durationSeconds > 0) {
-        await app.prisma.$transaction([
-          app.prisma.usageEvent.create({
-            data: {
-              licenseId: quota.license.id,
-              machineId,
-              instanceId,
-              transcriptionSeconds: durationSeconds,
-            },
-          }),
-          app.prisma.usageTotal.update({
-            where: {
-              licenseId_periodStart: {
-                licenseId: quota.license.id,
-                periodStart: quota.periodStart,
-              },
-            },
-            data: {
-              usedTranscriptionSeconds: { increment: durationSeconds },
-              updatedAt: new Date(),
-            },
-          }),
-        ]);
+        await recordTranscribeUsage(getProxyDeps(), {
+          licenseId: quota.license.id,
+          machineId,
+          instanceId,
+          periodStart: quota.periodStart,
+          transcriptionSeconds: durationSeconds,
+        });
       }
 
-      return reply.send({ text: typeof text === "string" ? text : JSON.stringify(json) });
+      return reply.send({
+        text: typeof text === "string" ? text : JSON.stringify(json),
+      });
     }
   );
 };

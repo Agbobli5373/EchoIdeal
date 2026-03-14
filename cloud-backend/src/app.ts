@@ -9,6 +9,7 @@ import { loadEnv } from "./env.js";
 import { prismaPlugin } from "./plugins/prisma.js";
 import { authPlugin } from "./plugins/auth.js";
 import { routes } from "./routes/index.js";
+import { AppError } from "./services/errors.js";
 
 export async function buildApp(overrides?: Partial<Env>) {
   dotenv.config();
@@ -47,7 +48,8 @@ export async function buildApp(overrides?: Partial<Env>) {
 
   app.setErrorHandler((err, _req, reply) => {
     app.log.error({ err }, "request error");
-    const status = (err as any).statusCode ?? 500;
+    const status =
+      err instanceof AppError ? err.statusCode : (err as { statusCode?: number }).statusCode ?? 500;
     const message = err instanceof Error ? err.message : String(err);
     reply.code(status).send({ error: status >= 500 ? "Server error" : message });
   });

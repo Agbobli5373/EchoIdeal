@@ -61,6 +61,7 @@ export const useChatCompletion = (
     allSttProviders,
     selectedAudioDevices,
     hasActiveLicense,
+    supportsImages,
   } = useApp();
 
   const [state, setState] = useState<ChatCompletionState>({
@@ -172,6 +173,15 @@ export const useChatCompletion = (
               imagesBase64.push(file.base64);
             }
           });
+        }
+
+        // Check if model supports image input
+        if (imagesBase64.length > 0 && !supportsImages) {
+          setState((prev) => ({
+            ...prev,
+            error: "Cannot read \"clipboard\" (this model does not support image input).",
+          }));
+          return;
         }
 
         const useEchoIdealAPI = await shouldUseEchoIdealAPI();

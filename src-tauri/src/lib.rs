@@ -104,6 +104,7 @@ pub fn run() {
             api::fetch_prompts,
             api::create_system_prompt,
             api::check_license_status,
+            api::clear_license,
             api::get_activity,
             speaker::start_system_audio_capture,
             speaker::stop_system_audio_capture,

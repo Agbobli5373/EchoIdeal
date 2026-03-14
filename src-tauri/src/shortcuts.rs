@@ -521,6 +521,14 @@ pub fn set_license_status<R: Runtime>(app: AppHandle<R>, has_license: bool) -> R
         stop_all_move_windows(&app);
     }
 
+    // Notify all windows so React hasActiveLicense stays in sync at runtime
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.emit("license-status-changed", has_license);
+    }
+    if let Some(dashboard) = app.get_webview_window("dashboard") {
+        let _ = dashboard.emit("license-status-changed", has_license);
+    }
+
     Ok(())
 }
 

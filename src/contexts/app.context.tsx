@@ -194,6 +194,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     syncLicenseState();
   }, [hasActiveLicense]);
 
+  // Sync hasActiveLicense across all windows when license is activated/deactivated elsewhere
+  useEffect(() => {
+    const unlistenPromise = listen<boolean>("license-status-changed", (event) => {
+      setHasActiveLicense(event.payload);
+    });
+
+    return () => {
+      unlistenPromise.then((unlisten) => unlisten());
+    };
+  }, []);
+
   // Function to load AI, STT, system prompt and screenshot config data from storage
   const loadData = () => {
     // Load system prompt

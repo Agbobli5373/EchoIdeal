@@ -27,6 +27,7 @@ export const useMenuItems = () => {
     label: string;
     href: string;
     count?: number;
+    premiumOnly?: boolean;
   }[] = [
     {
       icon: HomeIcon,
@@ -42,6 +43,7 @@ export const useMenuItems = () => {
       icon: MicIcon,
       label: "Meetings",
       href: "/meetings",
+      premiumOnly: true,
     },
     {
       icon: WandSparkles,
@@ -62,6 +64,7 @@ export const useMenuItems = () => {
       icon: MonitorIcon,
       label: "Screenshot",
       href: "/screenshot",
+      premiumOnly: true,
     },
     {
       icon: AudioLinesIcon,

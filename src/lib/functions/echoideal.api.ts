@@ -1,8 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
 import { safeLocalStorage } from "../storage";
-import { STORAGE_KEYS, PREMIUM_FEATURES_ENABLED } from "@/config";
+import { STORAGE_KEYS } from "@/config";
+import { PREMIUM_FEATURES_ENABLED } from "@/config/feature-flags";
 
-// Helper function to check if EchoIdeal API should be used
+export async function clearLicense(): Promise<void> {
+  await invoke("clear_license");
+}
+
 export async function shouldUseEchoIdealAPI(): Promise<boolean> {
   try {
     // Check if EchoIdeal API is enabled in localStorage

@@ -1,6 +1,6 @@
 import { ChatConversation } from "@/types";
 import { Markdown, Switch, CopyButton } from "@/components";
-import { BotIcon, HeadphonesIcon, Loader2, SparklesIcon } from "lucide-react";
+import { BotIcon, HeadphonesIcon, Loader2, ZapIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -35,7 +35,7 @@ export const ResultsSection = ({
       {/* Header with toggle */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <SparklesIcon className="w-3.5 h-3.5 text-primary" />
+          <ZapIcon className="w-3.5 h-3.5 text-primary" />
           <h4 className="text-xs font-medium">
             {conversationMode ? "Conversation" : "AI Response"}
           </h4>

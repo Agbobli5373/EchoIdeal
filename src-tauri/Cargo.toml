@@ -15,6 +15,9 @@ edition = "2021"
 [features]
 default = ["premium_unlocked"]
 premium_unlocked = []
+# Some upstream macros still reference this legacy feature flag in `cfg(feature = "cargo-clippy")`.
+# Defining it here prevents Rust's `unexpected_cfgs` lint from warning during builds.
+cargo-clippy = []
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -30,9 +33,9 @@ tauri-build = { version = "2", features = [] }
 dotenv = "0.15"
 
 [dependencies]
-tauri = { version = "2", features = ["macos-private-api"] }
-tauri-plugin-opener = "2"
-tauri-plugin-updater = "2.9.0"
+tauri = { version = "2.10", features = ["macos-private-api"] }
+tauri-plugin-opener = "2.5"
+tauri-plugin-updater = "2.10"
 tauri-plugin-http = "2.5.2"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-keychain = "2.0"

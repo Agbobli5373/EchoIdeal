@@ -2,6 +2,11 @@
 
 A lightning-fast, privacy-first AI assistant that works seamlessly during meetings, interviews, and conversations. Built with Tauri + React + Rust.
 
+This repo contains:
+
+- The **desktop app** (React + Tauri): `src/`, `src-tauri/`
+- An **optional cloud backend** for licensing + hosted AI/STT proxy: `cloud-backend/`
+
 ## Features
 
 - **Undetectable Overlay** — Translucent window that floats over applications, hidden in screen shares and recordings
@@ -9,6 +14,7 @@ A lightning-fast, privacy-first AI assistant that works seamlessly during meetin
 - **Voice Input** — Speech-to-text with voice activity detection (VAD)
 - **Screenshot Capture** — Capture and analyze screen content
 - **System Audio Capture** — Real-time transcription of system audio
+- **Meeting AI Chat + Summary (Markdown)** — Meeting assistant replies and summaries render as Markdown (headings, lists, code, tables, mermaid)
 - **Global Keyboard Shortcuts** — Quick access to core functions
 - **Local History** — Conversations stored locally via SQLite
 
@@ -39,6 +45,30 @@ npx tauri dev
 # Build for production
 npx tauri build
 ```
+
+## Optional: Cloud Backend (Licensing + Hosted AI/STT Proxy)
+
+EchoIdeal can be built to use a cloud backend for licensing plus hosted AI/STT proxying (without persisting user content).
+
+- Backend docs: [`cloud-backend/README.md`](cloud-backend/README.md)
+
+To point the desktop app at your backend, set these env vars **before** running `npx tauri dev` or `npx tauri build` (they are embedded at build time via `src-tauri/build.rs`):
+
+- `APP_ENDPOINT` (base URL for app API, e.g. `https://api.example.com`)
+- `PAYMENT_ENDPOINT` (base URL for licensing endpoints, usually the same as `APP_ENDPOINT`)
+- `API_ACCESS_KEY` (shared app-level gate key)
+
+Example (local dev):
+
+```bash
+export APP_ENDPOINT=http://localhost:8787
+export PAYMENT_ENDPOINT=http://localhost:8787
+export API_ACCESS_KEY=dev_app_key_change_me
+
+npx tauri dev
+```
+
+For production, use HTTPS.
 
 ## Development
 

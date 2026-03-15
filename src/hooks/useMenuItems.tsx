@@ -51,11 +51,6 @@ export const useMenuItems = () => {
       href: "/system-prompts",
     },
     {
-      icon: Settings,
-      label: "App Settings",
-      href: "/settings",
-    },
-    {
       icon: MessageSquareTextIcon,
       label: "Responses",
       href: "/responses",
@@ -76,7 +71,11 @@ export const useMenuItems = () => {
       label: "Cursor & Shortcuts",
       href: "/shortcuts",
     },
-
+    {
+      icon: Settings,
+      label: "App Settings",
+      href: "/settings",
+    },
     {
       icon: Code,
       label: "Dev space",
@@ -97,7 +96,7 @@ export const useMenuItems = () => {
     {
       icon: BugIcon,
       label: "Report a bug",
-      href: "https://github.com/iamsrikanthnani/echoideal/issues/new?template=bug-report.yml",
+      href: "https://github.com/Agbobli5373/EchoIdeal/issues/new?template=bug-report.yml",
     },
     {
       icon: PowerIcon,
@@ -121,17 +120,17 @@ export const useMenuItems = () => {
     {
       title: "Github",
       icon: GithubIcon,
-      link: "https://github.com/iamsrikanthnani/echoideal",
+      link: "https://github.com/Agbobli5373/EchoIdeal",
     },
     {
       title: "Buy Me a Coffee",
       icon: CoffeeIcon,
-      link: "https://buymeacoffee.com/srikanthnani",
+      link: "https://www.buymeacoffee.com/agbobli5373",
     },
     {
       title: "Follow on X",
       icon: XIcon,
-      link: "https://x.com/srikanthnani",
+      link: "https://x.com/IsaacAgbobli",
     },
   ];
 

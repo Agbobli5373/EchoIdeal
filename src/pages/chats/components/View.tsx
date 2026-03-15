@@ -14,7 +14,6 @@ import {
   MessageCircleIcon,
   MessageCircleReplyIcon,
   Trash2,
-  SparklesIcon,
   UserIcon,
   SendIcon,
   Check,

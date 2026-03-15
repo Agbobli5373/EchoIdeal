@@ -10,7 +10,7 @@ import {
   Textarea,
 } from "@/components";
 import { GenerateSystemPrompt } from "./Generate";
-import { SparklesIcon } from "lucide-react";
+import { ZapIcon } from "lucide-react";
 
 interface CreateEditDialogProps {
   isOpen: boolean;
@@ -108,7 +108,7 @@ export const CreateEditDialog = ({
           <Button onClick={handleSave} disabled={!isFormValid || isSaving}>
             {isSaving ? (
               <>
-                <SparklesIcon className="h-4 w-4 animate-pulse" />
+                <ZapIcon className="h-4 w-4 animate-pulse" />
                 {isEditing ? "Updating..." : "Creating..."}
               </>
             ) : isEditing ? (

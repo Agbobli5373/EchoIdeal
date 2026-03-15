@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ScrollArea, Button, Input } from "@/components";
+import { ScrollArea, Button, Input, Markdown } from "@/components";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -29,11 +29,10 @@ import {
   SquareIcon,
   UsersIcon,
   SendIcon,
-  SparklesIcon,
+  ZapIcon,
   ChevronDownIcon,
   PencilIcon,
   CheckIcon,
-  ZapIcon,
   ListChecksIcon,
   MessageCircleQuestionIcon,
 } from "lucide-react";
@@ -81,7 +80,9 @@ const MEETING_SYSTEM_PROMPT = `You are a real-time meeting assistant. You have a
 4. Track action items and commitments mentioned in the conversation
 5. Summarize key points when asked
 
-Be concise and actionable. Reference specific parts of the transcript when relevant.`;
+Be concise and actionable. Reference specific parts of the transcript when relevant.
+
+Format replies in Markdown when helpful (headings, bullets, code blocks).`;
 
 interface ChatMessage {
   id: string;
@@ -91,7 +92,7 @@ interface ChatMessage {
 
 const QUICK_ACTIONS = [
   { icon: ListChecksIcon, label: "Action items", prompt: "What action items and commitments have been mentioned so far? List each with the responsible person if mentioned." },
-  { icon: SparklesIcon, label: "Summarize", prompt: "Give me a brief summary of this meeting so far. What are the key topics discussed and any decisions made?" },
+  { icon: ZapIcon, label: "Summarize", prompt: "Give me a brief summary of this meeting so far. What are the key topics discussed and any decisions made?" },
   { icon: MessageCircleQuestionIcon, label: "What should I say?", prompt: "Based on the conversation so far, what would be a good thing for me to say next? Suggest 2-3 options." },
   { icon: ZapIcon, label: "Key moments", prompt: "What are the most important moments in this meeting so far? Highlight any critical decisions, concerns, or breakthroughs." },
 ];
@@ -210,13 +211,14 @@ const MeetingView = () => {
     await endMeeting(meetingId);
     if (segments.length > 0) {
       const provider = allAiProviders.find((p) => p.id === selectedAIProvider.provider);
-      if (provider) {
+          if (provider) {
         try {
           const transcript = buildTranscriptContext(segments, 100);
           let summary = "";
           const gen = fetchAIResponse({
             provider, selectedProvider: selectedAIProvider,
-            systemPrompt: "You are a meeting summarizer. Generate a structured summary with: Overview, Key Topics, Decisions Made, Action Items, and Follow-up Questions.",
+            systemPrompt:
+              "You are a meeting summarizer. Return Markdown with the following sections as headings:\n\n## Overview\n## Key Topics\n## Decisions Made\n## Action Items\n## Follow-up Questions\n\nUse bullet lists where appropriate. Be concise and specific.",
             userMessage: `Summarize this meeting transcript:\n\n${transcript}`,
           });
           for await (const chunk of gen) { summary += chunk; }
@@ -530,7 +532,13 @@ const MeetingView = () => {
                         ? "bg-primary text-primary-foreground rounded-br-md"
                         : "bg-muted/50 text-foreground rounded-bl-md"
                     }`}>
-                      {msg.content || (
+                      {msg.content ? (
+                        msg.role === "assistant" ? (
+                          <Markdown>{msg.content}</Markdown>
+                        ) : (
+                          <span className="whitespace-pre-wrap">{msg.content}</span>
+                        )
+                      ) : (
                         <span className="flex items-center gap-1 text-muted-foreground">
                           <Loader2Icon className="size-3 animate-spin" />Thinking...
                         </span>
@@ -581,8 +589,8 @@ const MeetingView = () => {
         <TabsContent value="summary" className="flex-1 mt-0">
           <ScrollArea className="h-[calc(100vh-14rem)] pr-4">
             {meeting.summary ? (
-              <div className="py-4 space-y-4">
-                <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">{meeting.summary}</p>
+              <div className="py-4 text-sm text-foreground/90 leading-relaxed">
+                <Markdown>{meeting.summary}</Markdown>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">

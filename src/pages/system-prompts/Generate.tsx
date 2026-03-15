@@ -6,7 +6,7 @@ import {
   GetLicense,
   Textarea,
 } from "@/components";
-import { SparklesIcon } from "lucide-react";
+import { ZapIcon } from "lucide-react";
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useApp } from "@/contexts";
@@ -70,7 +70,7 @@ export const GenerateSystemPrompt = ({
           variant="outline"
           className="w-fit"
         >
-          <SparklesIcon className="h-4 w-4" /> Generate with AI
+          <ZapIcon className="h-4 w-4" /> Generate with AI
         </Button>
       </PopoverTrigger>
       <PopoverContent
@@ -108,12 +108,12 @@ export const GenerateSystemPrompt = ({
             >
               {isGenerating ? (
                 <>
-                  <SparklesIcon className="h-4 w-4 animate-pulse" />
+                  <ZapIcon className="h-4 w-4 animate-pulse" />
                   Generating...
                 </>
               ) : (
                 <>
-                  <SparklesIcon className="h-4 w-4" />
+                  <ZapIcon className="h-4 w-4" />
                   Generate
                 </>
               )}

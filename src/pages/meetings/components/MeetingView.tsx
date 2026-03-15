@@ -29,11 +29,10 @@ import {
   SquareIcon,
   UsersIcon,
   SendIcon,
-  SparklesIcon,
+  ZapIcon,
   ChevronDownIcon,
   PencilIcon,
   CheckIcon,
-  ZapIcon,
   ListChecksIcon,
   MessageCircleQuestionIcon,
 } from "lucide-react";
@@ -91,7 +90,7 @@ interface ChatMessage {
 
 const QUICK_ACTIONS = [
   { icon: ListChecksIcon, label: "Action items", prompt: "What action items and commitments have been mentioned so far? List each with the responsible person if mentioned." },
-  { icon: SparklesIcon, label: "Summarize", prompt: "Give me a brief summary of this meeting so far. What are the key topics discussed and any decisions made?" },
+  { icon: ZapIcon, label: "Summarize", prompt: "Give me a brief summary of this meeting so far. What are the key topics discussed and any decisions made?" },
   { icon: MessageCircleQuestionIcon, label: "What should I say?", prompt: "Based on the conversation so far, what would be a good thing for me to say next? Suggest 2-3 options." },
   { icon: ZapIcon, label: "Key moments", prompt: "What are the most important moments in this meeting so far? Highlight any critical decisions, concerns, or breakthroughs." },
 ];

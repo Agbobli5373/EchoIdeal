@@ -15,6 +15,9 @@ edition = "2021"
 [features]
 default = ["premium_unlocked"]
 premium_unlocked = []
+# Some upstream macros still reference this legacy feature flag in `cfg(feature = "cargo-clippy")`.
+# Defining it here prevents Rust's `unexpected_cfgs` lint from warning during builds.
+cargo-clippy = []
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

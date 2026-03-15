@@ -31,6 +31,31 @@ fn get_api_access_key() -> Result<String, String> {
     }
 }
 
+/// Map request/send errors to a user-friendly message (e.g. backend not running).
+fn api_request_error(e: impl std::fmt::Display, endpoint: &str) -> String {
+    let msg = format!("{}", e);
+    if msg.contains("error sending request")
+        || msg.contains("connection refused")
+        || msg.contains("Connection refused")
+        || msg.contains("timed out")
+        || msg.contains("failed to connect")
+    {
+        format!(
+            "Could not connect to the API server at {}. Is the cloud backend running? (Original: {})",
+            endpoint, msg
+        )
+    } else if msg.contains("url (") {
+        let parts: Vec<&str> = msg.split(" for url (").collect();
+        if parts.len() > 1 {
+            format!("API request failed: {}", parts[0].trim())
+        } else {
+            format!("API request failed: {}", msg)
+        }
+    } else {
+        format!("API request failed: {}", msg)
+    }
+}
+
 // Secure storage functions
 fn get_secure_storage_path(app: &AppHandle) -> Result<PathBuf, String> {
     let app_data_dir = app
@@ -78,6 +103,16 @@ pub async fn get_stored_credentials(
         .and_then(|json_str| serde_json::from_str(&json_str).ok());
 
     Ok((license_key, instance_id, selected_model))
+}
+
+#[tauri::command]
+pub async fn clear_license(app: AppHandle) -> Result<(), String> {
+    let storage_path = get_secure_storage_path(&app)?;
+    if storage_path.exists() {
+        fs::remove_file(&storage_path)
+            .map_err(|e| format!("Failed to remove license file: {}", e))?;
+    }
+    Ok(())
 }
 
 // Audio API Structs
@@ -324,17 +359,7 @@ async fn fetch_api_response_config(
     }
 
     let response = request.send().await.map_err(|e| {
-        let error_msg = format!("{}", e);
-        if error_msg.contains("url (") {
-            let parts: Vec<&str> = error_msg.split(" for url (").collect();
-            if parts.len() > 1 {
-                format!("Failed to fetch API config: {}", parts[0])
-            } else {
-                format!("Failed to fetch API config: {}", error_msg)
-            }
-        } else {
-            format!("Failed to fetch API config: {}", error_msg)
-        }
+        api_request_error(e, &app_endpoint)
     })?;
 
     // Check if the response is successful
@@ -359,7 +384,7 @@ async fn fetch_api_response_config(
     let api_config: ApiResponseConfig = response
         .json()
         .await
-        .map_err(|e| format!("Failed to parse API config response: {}", e))?;
+        .map_err(|e| api_request_error(e, &app_endpoint))?;
     Ok(api_config)
 }
 

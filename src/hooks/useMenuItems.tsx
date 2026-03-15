@@ -13,6 +13,7 @@ import {
   GlobeIcon,
   BugIcon,
   MessageSquareTextIcon,
+  MicIcon,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useApp } from "@/contexts";
@@ -26,6 +27,7 @@ export const useMenuItems = () => {
     label: string;
     href: string;
     count?: number;
+    premiumOnly?: boolean;
   }[] = [
     {
       icon: HomeIcon,
@@ -36,6 +38,12 @@ export const useMenuItems = () => {
       icon: MessagesSquare,
       label: "Chats",
       href: "/chats",
+    },
+    {
+      icon: MicIcon,
+      label: "Meetings",
+      href: "/meetings",
+      premiumOnly: true,
     },
     {
       icon: WandSparkles,
@@ -56,6 +64,7 @@ export const useMenuItems = () => {
       icon: MonitorIcon,
       label: "Screenshot",
       href: "/screenshot",
+      premiumOnly: true,
     },
     {
       icon: AudioLinesIcon,

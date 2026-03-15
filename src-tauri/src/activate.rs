@@ -29,6 +29,31 @@ fn get_api_access_key() -> Result<String, String> {
     }
 }
 
+/// Map request/send errors to a user-friendly message (e.g. backend not running).
+fn license_request_error(e: impl std::fmt::Display, endpoint: &str) -> String {
+    let msg = format!("{}", e);
+    if msg.contains("error sending request")
+        || msg.contains("connection refused")
+        || msg.contains("Connection refused")
+        || msg.contains("timed out")
+        || msg.contains("failed to connect")
+    {
+        format!(
+            "Could not connect to the license server at {}. Is the cloud backend running? (Original: {})",
+            endpoint, msg
+        )
+    } else if msg.contains("url (") {
+        let parts: Vec<&str> = msg.split(" for url (").collect();
+        if parts.len() > 1 {
+            format!("License request failed: {}", parts[0].trim())
+        } else {
+            format!("License request failed: {}", msg)
+        }
+    } else {
+        format!("License request failed: {}", msg)
+    }
+}
+
 // Secure storage functions using Tauri's app data directory
 fn get_secure_storage_path(app: &AppHandle) -> Result<PathBuf, String> {
     let app_data_dir = app
@@ -220,34 +245,10 @@ pub async fn activate_license_api(
         .json(&activation_request)
         .send()
         .await
-        .map_err(|e| {
-            let error_msg = format!("{}", e);
-            if error_msg.contains("url (") {
-                // Remove the URL part from the error message
-                let parts: Vec<&str> = error_msg.split(" for url (").collect();
-                if parts.len() > 1 {
-                    format!("Failed to make chat request: {}", parts[0])
-                } else {
-                    format!("Failed to make chat request: {}", error_msg)
-                }
-            } else {
-                format!("Failed to make chat request: {}", error_msg)
-            }
-        })?;
+        .map_err(|e| license_request_error(e, &payment_endpoint))?;
 
     let activation_response: ActivationResponse = response.json().await.map_err(|e| {
-        let error_msg = format!("{}", e);
-        if error_msg.contains("url (") {
-            // Remove the URL part from the error message
-            let parts: Vec<&str> = error_msg.split(" for url (").collect();
-            if parts.len() > 1 {
-                format!("Failed to make chat request: {}", parts[0])
-            } else {
-                format!("Failed to make chat request: {}", error_msg)
-            }
-        } else {
-            format!("Failed to make chat request: {}", error_msg)
-        }
+        license_request_error(e, &payment_endpoint)
     })?;
     Ok(activation_response)
 }
@@ -277,33 +278,9 @@ pub async fn deactivate_license_api(app: AppHandle) -> Result<ActivationResponse
         .json(&deactivation_request)
         .send()
         .await
-        .map_err(|e| {
-            let error_msg = format!("{}", e);
-            if error_msg.contains("url (") {
-                // Remove the URL part from the error message
-                let parts: Vec<&str> = error_msg.split(" for url (").collect();
-                if parts.len() > 1 {
-                    format!("Failed to make chat request: {}", parts[0])
-                } else {
-                    format!("Failed to make chat request: {}", error_msg)
-                }
-            } else {
-                format!("Failed to make chat request: {}", error_msg)
-            }
-        })?;
+        .map_err(|e| license_request_error(e, &payment_endpoint))?;
     let deactivation_response: ActivationResponse = response.json().await.map_err(|e| {
-        let error_msg = format!("{}", e);
-        if error_msg.contains("url (") {
-            // Remove the URL part from the error message
-            let parts: Vec<&str> = error_msg.split(" for url (").collect();
-            if parts.len() > 1 {
-                format!("Failed to make chat request: {}", parts[0])
-            } else {
-                format!("Failed to make chat request: {}", error_msg)
-            }
-        } else {
-            format!("Failed to make chat request: {}", error_msg)
-        }
+        license_request_error(e, &payment_endpoint)
     })?;
     Ok(deactivation_response)
 }
@@ -353,34 +330,10 @@ pub async fn validate_license_api(app: AppHandle) -> Result<ValidateResponse, St
         .json(&validate_request)
         .send()
         .await
-        .map_err(|e| {
-            let error_msg = format!("{}", e);
-            if error_msg.contains("url (") {
-                // Remove the URL part from the error message
-                let parts: Vec<&str> = error_msg.split(" for url (").collect();
-                if parts.len() > 1 {
-                    format!("Failed to make chat request: {}", parts[0])
-                } else {
-                    format!("Failed to make chat request: {}", error_msg)
-                }
-            } else {
-                format!("Failed to make chat request: {}", error_msg)
-            }
-        })?;
+        .map_err(|e| license_request_error(e, &payment_endpoint))?;
 
     let validate_response: ValidateResponse = response.json().await.map_err(|e| {
-        let error_msg = format!("{}", e);
-        if error_msg.contains("url (") {
-            // Remove the URL part from the error message
-            let parts: Vec<&str> = error_msg.split(" for url (").collect();
-            if parts.len() > 1 {
-                format!("Failed to make chat request: {}", parts[0])
-            } else {
-                format!("Failed to make chat request: {}", error_msg)
-            }
-        } else {
-            format!("Failed to make chat request: {}", error_msg)
-        }
+        license_request_error(e, &payment_endpoint)
     })?;
     Ok(validate_response)
 }
@@ -415,34 +368,10 @@ pub async fn get_checkout_url() -> Result<CheckoutResponse, String> {
         .json(&serde_json::json!({}))
         .send()
         .await
-        .map_err(|e| {
-            let error_msg = format!("{}", e);
-            if error_msg.contains("url (") {
-                // Remove the URL part from the error message
-                let parts: Vec<&str> = error_msg.split(" for url (").collect();
-                if parts.len() > 1 {
-                    format!("Failed to make chat request: {}", parts[0])
-                } else {
-                    format!("Failed to make chat request: {}", error_msg)
-                }
-            } else {
-                format!("Failed to make chat request: {}", error_msg)
-            }
-        })?;
+        .map_err(|e| license_request_error(e, &payment_endpoint))?;
 
     let checkout_response: CheckoutResponse = response.json().await.map_err(|e| {
-        let error_msg = format!("{}", e);
-        if error_msg.contains("url (") {
-            // Remove the URL part from the error message
-            let parts: Vec<&str> = error_msg.split(" for url (").collect();
-            if parts.len() > 1 {
-                format!("Failed to make chat request: {}", parts[0])
-            } else {
-                format!("Failed to make chat request: {}", error_msg)
-            }
-        } else {
-            format!("Failed to make chat request: {}", error_msg)
-        }
+        license_request_error(e, &payment_endpoint)
     })?;
     Ok(checkout_response)
 }

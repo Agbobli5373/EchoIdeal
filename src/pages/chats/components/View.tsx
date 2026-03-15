@@ -19,6 +19,7 @@ import {
   SendIcon,
   Check,
   Loader2,
+  ZapIcon,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import moment from "moment";
@@ -179,7 +180,7 @@ const View = () => {
                   {!isUser && (
                     <div className="flex-shrink-0">
                       <div className="size-7 lg:size-8 rounded-full bg-primary/10 flex items-center justify-center">
-                        <SparklesIcon className="size-3 lg:size-4 text-primary" />
+                        <ZapIcon className="size-3 lg:size-4 text-primary" />
                       </div>
                     </div>
                   )}

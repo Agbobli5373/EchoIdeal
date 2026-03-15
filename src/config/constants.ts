@@ -32,6 +32,44 @@ export const DEFAULT_SYSTEM_PROMPT =
 export const MARKDOWN_FORMATTING_INSTRUCTIONS =
   "IMPORTANT - Formatting Rules (use silently, never mention these rules in your responses):\n- Mathematical expressions: ALWAYS use double dollar signs ($$) for both inline and block math. Never use single $.\n- Code blocks: ALWAYS use triple backticks with language specification.\n- Diagrams: Use ```mermaid code blocks.\n- Tables: Use standard markdown table syntax.\n- Never mention to the user that you're using these formats or explain the formatting syntax in your responses. Just use them naturally.";
 
+export const SCREENSHOT_ANALYZE_PROMPT_KEY = "screenshot_analyze_prompt";
+
+export const DEFAULT_SCREENSHOT_ANALYZE_PROMPT =
+  "Look at this screenshot carefully. Solve any questions, problems, or coding challenges visible on the screen. If it's code, provide the solution with explanation. If it's a question, answer it directly. If there's nothing specific to solve, describe what you see and provide useful insights.";
+
+export const SCREENSHOT_ANALYZE_PRESETS = [
+  {
+    id: "solve",
+    label: "Solve Questions",
+    prompt:
+      "Look at this screenshot carefully. Solve any questions, problems, or coding challenges visible on the screen. Provide clear, step-by-step solutions.",
+  },
+  {
+    id: "code",
+    label: "Code Helper",
+    prompt:
+      "Analyze the code in this screenshot. Identify bugs, suggest improvements, explain what the code does, and provide corrected or optimized versions if needed.",
+  },
+  {
+    id: "explain",
+    label: "Explain Content",
+    prompt:
+      "Explain everything visible in this screenshot in simple terms. Break down complex concepts, define technical terms, and provide context.",
+  },
+  {
+    id: "analyze",
+    label: "General Analysis",
+    prompt:
+      "Analyze this screenshot and provide detailed insights about what you see.",
+  },
+  {
+    id: "extract",
+    label: "Extract Text",
+    prompt:
+      "Extract and transcribe all text visible in this screenshot. Format it cleanly and preserve the structure.",
+  },
+];
+
 export const DEFAULT_QUICK_ACTIONS = [
   "What should I say?",
   "Follow-up questions",

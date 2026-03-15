@@ -3,12 +3,16 @@ import {
   AlwaysOnTopToggle,
   AppIconToggle,
   AutostartToggle,
+  ScreenShareToggle,
 } from "./components";
 import { PageLayout } from "@/layouts";
 
 const Settings = () => {
   return (
     <PageLayout title="Settings" description="Manage your settings">
+      {/* Screen Share Visibility Toggle */}
+      <ScreenShareToggle />
+
       {/* Theme */}
       <Theme />
 

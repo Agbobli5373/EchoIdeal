@@ -1,5 +1,5 @@
 fn main() {
-    dotenv::dotenv().ok();
+    dotenv::from_filename(concat!(env!("CARGO_MANIFEST_DIR"), "/.env")).ok();
 
     if let Ok(payment_endpoint) = std::env::var("PAYMENT_ENDPOINT") {
         println!("cargo:rustc-env=PAYMENT_ENDPOINT={}", payment_endpoint);

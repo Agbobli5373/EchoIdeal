@@ -84,6 +84,22 @@ pub fn set_window_height(window: tauri::WebviewWindow, height: u32) -> Result<()
 }
 
 #[tauri::command]
+pub fn set_screen_share_visibility(app: tauri::AppHandle, visible: bool) -> Result<(), String> {
+    let protected = !visible;
+    if let Some(main_window) = app.get_webview_window("main") {
+        main_window
+            .set_content_protected(protected)
+            .map_err(|e| format!("Failed to set content protection on main: {}", e))?;
+    }
+    if let Some(dashboard_window) = app.get_webview_window("dashboard") {
+        dashboard_window
+            .set_content_protected(protected)
+            .map_err(|e| format!("Failed to set content protection on dashboard: {}", e))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
 pub fn open_dashboard(app: tauri::AppHandle) -> Result<(), String> {
     show_dashboard_window(&app)
 }

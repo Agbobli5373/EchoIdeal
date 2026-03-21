@@ -3,13 +3,14 @@ import {
   PopoverContent,
   PopoverTrigger,
   Button,
-  GetLicense,
   Textarea,
 } from "@/components";
 import { ZapIcon } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useApp } from "@/contexts";
+import { shouldUseEchoIdealAPI } from "@/lib/functions/echoideal.api";
+import { fetchAIResponse } from "@/lib/functions/ai-response.function";
 
 interface GenerateSystemPromptProps {
   onGenerate: (prompt: string, promptName: string) => void;
@@ -20,14 +21,67 @@ interface SystemPromptResponse {
   system_prompt: string;
 }
 
+function formatInvokeError(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  try {
+    return JSON.stringify(err);
+  } catch {
+    return "Failed to generate prompt";
+  }
+}
+
+const GENERATOR_SYSTEM_PROMPT = `You generate system prompts for an AI assistant. Respond with ONLY valid JSON (no markdown fences, no other text) with keys "prompt_name" (short string, 2-5 words) and "system_prompt" (string: concise instructions for the assistant personality and behavior).`;
+
+function parseGeneratedPrompt(raw: string): { name: string; body: string } | null {
+  const trimmed = raw.trim();
+  const fence = /^```(?:json)?\s*([\s\S]*?)```$/m.exec(trimmed);
+  const jsonStr = fence ? fence[1].trim() : trimmed;
+  try {
+    const parsed = JSON.parse(jsonStr) as Record<string, unknown>;
+    const name = String(parsed.prompt_name ?? parsed.promptName ?? "").trim();
+    const body = String(
+      parsed.system_prompt ?? parsed.systemPrompt ?? ""
+    ).trim();
+    if (name && body) return { name, body };
+  } catch {
+    /* use raw text below */
+  }
+  if (trimmed.length > 0) {
+    return { name: "Custom Prompt", body: trimmed };
+  }
+  return null;
+}
+
+function looksLikeProviderErrorOutput(text: string): boolean {
+  const t = text.trimStart();
+  return (
+    t.startsWith("EchoIdeal API Error:") ||
+    t.startsWith("API request failed:") ||
+    t.startsWith("Network error during API request:") ||
+    t.startsWith("Failed to parse non-streaming response:") ||
+    t.startsWith("Streaming not supported") ||
+    t.startsWith("Error reading stream:")
+  );
+}
+
 export const GenerateSystemPrompt = ({
   onGenerate,
 }: GenerateSystemPromptProps) => {
-  const { hasActiveLicense } = useApp();
+  const { echoidealApiEnabled, allAiProviders, selectedAIProvider } = useApp();
   const [userPrompt, setUserPrompt] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+
+  const byoReady = useMemo(
+    () =>
+      !!selectedAIProvider?.provider &&
+      allAiProviders.some((p) => p.id === selectedAIProvider.provider),
+    [allAiProviders, selectedAIProvider.provider]
+  );
+
+  const canTryGenerate = byoReady || echoidealApiEnabled;
 
   const handleGenerate = async () => {
     if (!userPrompt.trim()) {
@@ -35,26 +89,85 @@ export const GenerateSystemPrompt = ({
       return;
     }
 
+    const generateWithByo = async (): Promise<{ name: string; body: string }> => {
+      const provider = allAiProviders.find(
+        (p) => p.id === selectedAIProvider.provider
+      );
+      if (!provider) {
+        throw new Error("Select an AI provider in App settings.");
+      }
+      let full = "";
+      for await (const chunk of fetchAIResponse({
+        provider,
+        selectedProvider: selectedAIProvider,
+        systemPrompt: GENERATOR_SYSTEM_PROMPT,
+        userMessage: userPrompt.trim(),
+        history: [],
+        imagesBase64: [],
+      })) {
+        full += chunk;
+      }
+      if (looksLikeProviderErrorOutput(full)) {
+        throw new Error(full.trim() || "AI provider returned an error.");
+      }
+      const parsed = parseGeneratedPrompt(full);
+      if (!parsed) {
+        throw new Error(
+          "Could not read the model response. Try again or write your own prompt."
+        );
+      }
+      return parsed;
+    };
+
     try {
       setIsGenerating(true);
       setError(null);
 
-      const response = await invoke<SystemPromptResponse>(
-        "create_system_prompt",
-        {
-          userPrompt: userPrompt.trim(),
-        }
-      );
+      const useCloud = await shouldUseEchoIdealAPI();
+      let name: string | undefined;
+      let body: string | undefined;
 
-      if (response.system_prompt && response.prompt_name) {
-        onGenerate(response.system_prompt, response.prompt_name);
+      if (useCloud) {
+        try {
+          const response = await invoke<SystemPromptResponse>(
+            "create_system_prompt",
+            {
+              userPrompt: userPrompt.trim(),
+            }
+          );
+          name = response.prompt_name?.trim();
+          body = response.system_prompt?.trim();
+        } catch (cloudErr) {
+          if (!byoReady) {
+            setError(formatInvokeError(cloudErr));
+            return;
+          }
+          try {
+            const local = await generateWithByo();
+            name = local.name;
+            body = local.body;
+          } catch {
+            setError(formatInvokeError(cloudErr));
+            return;
+          }
+        }
+      } else {
+        const local = await generateWithByo();
+        name = local.name;
+        body = local.body;
+      }
+
+      if (name && body) {
+        onGenerate(body, name);
         setIsOpen(false);
         setUserPrompt("");
+      } else {
+        setError(
+          "The server returned an empty prompt. Try again or write your own."
+        );
       }
     } catch (err) {
-      const errorMessage =
-        err instanceof Error ? err.message : "Failed to generate prompt";
-      setError(errorMessage);
+      setError(formatInvokeError(err));
       console.error("Error generating system prompt:", err);
     } finally {
       setIsGenerating(false);
@@ -100,7 +213,7 @@ export const GenerateSystemPrompt = ({
 
           {error && <p className="text-xs text-destructive">{error}</p>}
 
-          {hasActiveLicense ? (
+          {canTryGenerate ? (
             <Button
               className="w-full"
               onClick={handleGenerate}
@@ -119,17 +232,10 @@ export const GenerateSystemPrompt = ({
               )}
             </Button>
           ) : (
-            <div className="w-full flex flex-col gap-3">
-              <p className="text-sm font-medium text-muted-foreground">
-                You need an active license to use this feature. Click the button
-                below to get a license.
-              </p>
-              <GetLicense
-                buttonText="Get License"
-                buttonClassName="w-full"
-                setState={setIsOpen}
-              />
-            </div>
+            <p className="text-sm text-muted-foreground">
+              Configure an AI provider in App settings, or enable EchoIdeal cloud
+              on the Dashboard (with a license) to use this feature.
+            </p>
           )}
         </div>
       </PopoverContent>

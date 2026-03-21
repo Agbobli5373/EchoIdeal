@@ -2,11 +2,11 @@ import React, { useState, useEffect, useRef } from "react";
 import { KeyIcon, TrashIcon, LoaderIcon, ChevronDown } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useApp } from "@/contexts";
+import { cn } from "@/lib/utils";
 import {
   Button,
   Header,
   Input,
-  Switch,
   Command,
   CommandEmpty,
   CommandGroup,
@@ -173,13 +173,10 @@ export const EchoIdealApiSetup = () => {
           ],
         });
 
-        setSuccess("License activated successfully!");
+        setSuccess(
+          "License activated successfully. AI still uses your own providers until you choose EchoIdeal cloud below."
+        );
         setLicenseKey(""); // Clear the input
-
-        // Auto-enable EchoIdeal API when license is activated
-        if (!response?.is_dev_license) {
-          setEchoIdealApiEnabled(true);
-        }
 
         await loadLicenseStatus(); // Reload status
         await fetchModels();
@@ -281,6 +278,8 @@ export const EchoIdealApiSetup = () => {
     const lastProvider = capitalizedProviders.pop();
     providerList = `${capitalizedProviders.join(", ")}, and ${lastProvider}`;
   }
+
+  const cloudRoutingDisabled = !storedLicenseKey || !hasActiveLicense;
 
   const title = isModelsLoading
     ? "Loading Models..."
@@ -476,22 +475,61 @@ export const EchoIdealApiSetup = () => {
           )}
         </div>
       </div>
-      <div className="flex justify-between items-center">
+      <div
+        className="space-y-3 rounded-lg border border-input/50 p-4"
+        role="radiogroup"
+        aria-label="AI connection"
+      >
         <Header
-          title={`${echoidealApiEnabled ? "Disable" : "Enable"} EchoIdeal API`}
-          description={
-            storedLicenseKey
-              ? echoidealApiEnabled
-                ? "Using all echoideal APIs for audio, and chat."
-                : "Using all your own AI Providers for audio, and chat."
-              : "A valid license is required to enable EchoIdeal API or you can use your own AI Providers and STT Providers."
-          }
+          title="AI connection"
+          description="Choose whether chat, audio, and related features use your configured providers or EchoIdeal cloud-hosted models."
         />
-        <Switch
-          checked={echoidealApiEnabled}
-          onCheckedChange={setEchoIdealApiEnabled}
-          disabled={!storedLicenseKey || !hasActiveLicense} // Disable if no license is stored
-        />
+        <div className="space-y-2">
+          <label
+            className={cn(
+              "flex cursor-pointer gap-3 rounded-md border border-transparent p-2 transition-colors hover:bg-muted/50"
+            )}
+          >
+            <input
+              type="radio"
+              name="echoideal-ai-routing"
+              className="mt-1 size-4 shrink-0 accent-primary"
+              checked={!echoidealApiEnabled}
+              onChange={() => void setEchoIdealApiEnabled(false)}
+            />
+            <span className="min-w-0 space-y-0.5">
+              <span className="block text-sm font-medium">My API keys (local)</span>
+              <span className="block text-xs text-muted-foreground">
+                Use the AI and speech providers you set up in App settings.
+              </span>
+            </span>
+          </label>
+          <label
+            className={cn(
+              "flex gap-3 rounded-md border border-transparent p-2 transition-colors",
+              cloudRoutingDisabled
+                ? "cursor-not-allowed opacity-60"
+                : "cursor-pointer hover:bg-muted/50"
+            )}
+          >
+            <input
+              type="radio"
+              name="echoideal-ai-routing"
+              className="mt-1 size-4 shrink-0 accent-primary disabled:cursor-not-allowed"
+              checked={echoidealApiEnabled}
+              disabled={cloudRoutingDisabled}
+              onChange={() => void setEchoIdealApiEnabled(true)}
+            />
+            <span className="min-w-0 space-y-0.5">
+              <span className="block text-sm font-medium">EchoIdeal cloud</span>
+              <span className="block text-xs text-muted-foreground">
+                {cloudRoutingDisabled
+                  ? "Activate a valid license to use hosted models and EchoIdeal APIs."
+                  : "Use EchoIdeal-hosted models and APIs for chat and audio."}
+              </span>
+            </span>
+          </label>
+        </div>
       </div>
     </div>
   );

@@ -59,3 +59,4 @@ npm run license:create:paid
 
 - `APP_ENDPOINT` and `PAYMENT_ENDPOINT` in the desktop build should point at this server base URL.
 - `API_ACCESS_KEY` is embedded into the desktop app at build time, so treat it as an app-level gate only.
+- Set `OPENAI_API_KEY` in `.env` for hosted features that call OpenAI directly (for example `POST /api/prompt` used by the app’s “Generate with AI” system-prompt helper). If it is unset, that route returns an error.

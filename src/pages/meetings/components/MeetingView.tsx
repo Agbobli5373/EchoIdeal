@@ -1,6 +1,16 @@
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ScrollArea, Button, Input, Markdown } from "@/components";
+import {
+  ScrollArea,
+  Button,
+  Input,
+  Markdown,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -11,13 +21,31 @@ import {
   endMeeting,
   updateMeetingTitle,
   updateMeetingSummary,
+  updateMeetingPlaybook,
+  updateMeetingSummaryArtifact,
   addTranscriptSegment,
 } from "@/lib/database/meetings.action";
+import {
+  listTriggersForMeeting,
+  createCopilotTrigger,
+  deleteCopilotTrigger,
+  type CopilotTrigger,
+} from "@/lib/database/copilot-triggers.action";
+import { buildTranscriptContext } from "@/lib/meeting-transcript";
+import { buildTranscriptMarkdown } from "@/lib/meeting-transcript-export";
+import { saveMarkdownExport } from "@/lib/markdown-file-export";
+import { augmentPromptsForChat } from "@/lib/knowledge/augment-prompts";
+import { useCopilotProfile } from "@/contexts/copilot-profile.context";
 import { TranscriptSegmentItem } from "./TranscriptSegmentItem";
 import { MicTranscriber } from "./MicTranscriber";
 import { useLiveTranscription } from "@/hooks/useLiveTranscription";
 import { fetchAIResponse } from "@/lib/functions/ai-response.function";
 import { useApp } from "@/contexts";
+import {
+  STORAGE_KEYS,
+  COPILOT_RISK_NOTES_CHANGED_EVENT,
+} from "@/config";
+import { safeLocalStorage } from "@/lib";
 import {
   ArrowLeftIcon,
   ClockIcon,
@@ -35,8 +63,12 @@ import {
   CheckIcon,
   ListChecksIcon,
   MessageCircleQuestionIcon,
+  BookOpenIcon,
+  ShieldIcon,
+  DownloadIcon,
+  PlusIcon,
+  Trash2Icon,
 } from "lucide-react";
-
 function formatDuration(startMs: number, endMs: number | null): string {
   const end = endMs || Date.now();
   const seconds = Math.floor((end - startMs) / 1000);
@@ -65,14 +97,6 @@ function formatTimer(startMs: number): string {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-function buildTranscriptContext(segments: TranscriptSegment[], maxSegments = 30): string {
-  const recent = segments.slice(-maxSegments);
-  if (recent.length === 0) return "(No transcript yet)";
-  return recent
-    .map((s) => `[${s.speaker}]: ${s.content}`)
-    .join("\n");
-}
-
 const MEETING_SYSTEM_PROMPT = `You are a real-time meeting assistant. You have access to the live transcript of an ongoing meeting. Your role is to:
 1. Answer questions about what was discussed
 2. Suggest responses when the user seems stuck
@@ -83,6 +107,8 @@ const MEETING_SYSTEM_PROMPT = `You are a real-time meeting assistant. You have a
 Be concise and actionable. Reference specific parts of the transcript when relevant.
 
 Format replies in Markdown when helpful (headings, bullets, code blocks).`;
+
+const PLAYBOOK_SYSTEM = `You are a live meeting playbook. Output 3–5 short bullet suggestions only (what to say, clarify, or handle objections). No preamble, no title line. Use Markdown bullets.`;
 
 interface ChatMessage {
   id: string;
@@ -100,7 +126,13 @@ const QUICK_ACTIONS = [
 const MeetingView = () => {
   const { meetingId } = useParams<{ meetingId: string }>();
   const navigate = useNavigate();
-  const { allAiProviders, selectedAIProvider } = useApp();
+  const { allAiProviders, selectedAIProvider, customizable } = useApp();
+  const {
+    activeProfile,
+    profiles,
+    setActiveProfileId,
+    activeProfileId,
+  } = useCopilotProfile();
 
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
@@ -119,6 +151,29 @@ const MeetingView = () => {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [isAiLoading, setIsAiLoading] = useState(false);
+
+  const [playbookMd, setPlaybookMd] = useState("");
+  const [playbookPaused, setPlaybookPaused] = useState(false);
+  const [playbookLoading, setPlaybookLoading] = useState(false);
+  const [triggers, setTriggers] = useState<CopilotTrigger[]>([]);
+  const [triggerNotice, setTriggerNotice] = useState<string | null>(null);
+  const [wrapBusy, setWrapBusy] = useState(false);
+  const [ntName, setNtName] = useState("");
+  const [ntPattern, setNtPattern] = useState("");
+  const [ntMatch, setNtMatch] = useState<"keyword" | "regex">("keyword");
+  const [ntCool, setNtCool] = useState(120);
+  const [ntTpl, setNtTpl] = useState(
+    "Give one short line of coaching for the user based on the matched moment."
+  );
+  const [riskNotesVisible, setRiskNotesVisible] = useState(
+    () =>
+      safeLocalStorage.getItem(STORAGE_KEYS.COPILOT_RISK_NOTES_VISIBLE) ===
+      "true"
+  );
+
+  const triggerCooldownRef = useRef<Record<string, number>>({});
+  const triggerMinuteRef = useRef<number[]>([]);
+  const prevSegCountRef = useRef(0);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -144,6 +199,17 @@ const MeetingView = () => {
         setEditTitle(m.title);
         const segs = await getSegmentsByMeetingId(meetingId);
         setSegments(segs);
+        prevSegCountRef.current = segs.length;
+        if (m.lastPlaybookJson) {
+          try {
+            const p = JSON.parse(m.lastPlaybookJson) as { body?: string };
+            setPlaybookMd(p.body ?? m.lastPlaybookJson);
+          } catch {
+            setPlaybookMd(m.lastPlaybookJson);
+          }
+        } else {
+          setPlaybookMd("");
+        }
       }
       setIsLoading(false);
     };
@@ -244,6 +310,282 @@ const MeetingView = () => {
     }
   }, []);
 
+  useEffect(() => {
+    if (!meetingId) return;
+    void listTriggersForMeeting(meetingId).then(setTriggers);
+  }, [meetingId]);
+
+  useEffect(() => {
+    const onChanged = (e: Event) => {
+      const ce = e as CustomEvent<boolean>;
+      if (typeof ce.detail === "boolean") {
+        setRiskNotesVisible(ce.detail);
+        return;
+      }
+      setRiskNotesVisible(
+        safeLocalStorage.getItem(STORAGE_KEYS.COPILOT_RISK_NOTES_VISIBLE) ===
+          "true"
+      );
+    };
+    window.addEventListener(
+      COPILOT_RISK_NOTES_CHANGED_EVENT,
+      onChanged as EventListener
+    );
+    return () =>
+      window.removeEventListener(
+        COPILOT_RISK_NOTES_CHANGED_EVENT,
+        onChanged as EventListener
+      );
+  }, []);
+
+  const refreshPlaybook = useCallback(async () => {
+    if (!meetingId || !meeting || meeting.status !== "active" || playbookPaused) {
+      return;
+    }
+    const provider = allAiProviders.find(
+      (p) => p.id === selectedAIProvider.provider
+    );
+    if (!provider) return;
+    const transcript = buildTranscriptContext(segments, 35);
+    if (transcript === "(No transcript yet)") return;
+
+    setPlaybookLoading(true);
+    try {
+      const userMsg = `Recent transcript:\n${transcript}\n\nProduce playbook bullets only.`;
+      const mergedPlaybookSystem = [
+        activeProfile?.systemPrompt?.trim(),
+        PLAYBOOK_SYSTEM,
+      ]
+        .filter((x) => x && x.length > 0)
+        .join("\n\n");
+      const aug = await augmentPromptsForChat({
+        systemPrompt: mergedPlaybookSystem,
+        userMessage: userMsg,
+        conversationKnowledgeMode: activeProfile?.knowledgeMode ?? undefined,
+        strictKb: activeProfile?.strictKb,
+      });
+      let out = "";
+      const gen = fetchAIResponse({
+        provider,
+        selectedProvider: selectedAIProvider,
+        systemPrompt: aug.systemPrompt,
+        userMessage: aug.userMessage,
+      });
+      for await (const chunk of gen) {
+        out += chunk;
+      }
+      if (out.trim()) {
+        setPlaybookMd(out);
+        const payload = JSON.stringify({
+          body: out,
+          updatedAt: Date.now(),
+        });
+        await updateMeetingPlaybook(meetingId, payload);
+        setMeeting((prev) =>
+          prev
+            ? {
+                ...prev,
+                lastPlaybookJson: payload,
+                playbookUpdatedAt: Date.now(),
+              }
+            : null
+        );
+      }
+    } catch (err) {
+      console.error("Playbook refresh failed:", err);
+    } finally {
+      setPlaybookLoading(false);
+    }
+  }, [
+    meetingId,
+    meeting,
+    playbookPaused,
+    segments,
+    allAiProviders,
+    selectedAIProvider,
+    activeProfile?.systemPrompt,
+    activeProfile?.knowledgeMode,
+    activeProfile?.strictKb,
+  ]);
+
+  useEffect(() => {
+    if (!meetingId || playbookPaused || meeting?.status !== "active") return;
+    const t = window.setTimeout(() => {
+      void refreshPlaybook();
+    }, 22000);
+    return () => window.clearTimeout(t);
+  }, [
+    segments,
+    playbookPaused,
+    meetingId,
+    meeting?.status,
+    refreshPlaybook,
+  ]);
+
+  useEffect(() => {
+    if (!meetingId || segments.length === 0) {
+      prevSegCountRef.current = 0;
+      return;
+    }
+    if (segments.length < prevSegCountRef.current) {
+      prevSegCountRef.current = segments.length;
+      return;
+    }
+    const newSegs = segments.slice(prevSegCountRef.current);
+    prevSegCountRef.current = segments.length;
+    if (triggers.length === 0) return;
+
+    const run = async () => {
+      const enabled = triggers.filter((t) => t.enabled);
+      const now = Date.now();
+      triggerMinuteRef.current = triggerMinuteRef.current.filter(
+        (x) => now - x < 60_000
+      );
+
+      for (const seg of newSegs) {
+        for (const tr of enabled) {
+          if (triggerMinuteRef.current.length >= 8) return;
+          let matched = false;
+          try {
+            if (tr.matchType === "keyword") {
+              matched = seg.content
+                .toLowerCase()
+                .includes(tr.pattern.toLowerCase());
+            } else {
+              matched = new RegExp(tr.pattern, "i").test(seg.content);
+            }
+          } catch {
+            continue;
+          }
+          if (!matched) continue;
+          const lastAt = triggerCooldownRef.current[tr.id] ?? 0;
+          if (now - lastAt < tr.cooldownSec * 1000) continue;
+          triggerCooldownRef.current[tr.id] = now;
+          triggerMinuteRef.current.push(now);
+
+          const provider = allAiProviders.find(
+            (p) => p.id === selectedAIProvider.provider
+          );
+          if (!provider) continue;
+          const ctx = buildTranscriptContext(segments, 18);
+          try {
+            let text = "";
+            for await (const c of fetchAIResponse({
+              provider,
+              selectedProvider: selectedAIProvider,
+              systemPrompt: tr.promptTemplate,
+              userMessage: `Context:\n${ctx}\n\nMatched: [${seg.speaker}]: ${seg.content}`,
+            })) {
+              text += c;
+            }
+            if (text.trim()) {
+              setTriggerNotice(
+                `${tr.name}: ${text.slice(0, 320)}${text.length > 320 ? "…" : ""}`
+              );
+              window.setTimeout(() => setTriggerNotice(null), 12000);
+            }
+          } catch {
+            /* one-shot trigger */
+          }
+        }
+      }
+    };
+    void run();
+  }, [segments, triggers, allAiProviders, selectedAIProvider, meetingId]);
+
+  const handleWrapUp = useCallback(async () => {
+    if (!meetingId || segments.length === 0) return;
+    const provider = allAiProviders.find(
+      (p) => p.id === selectedAIProvider.provider
+    );
+    if (!provider) return;
+    setWrapBusy(true);
+    try {
+      const transcript = buildTranscriptContext(segments, 200);
+      const aug = await augmentPromptsForChat({
+        systemPrompt:
+          "You produce concise meeting wrap-ups in Markdown with ## Summary, ## Decisions, ## Action items.",
+        userMessage: `Transcript:\n${transcript}`,
+        conversationKnowledgeMode: activeProfile?.knowledgeMode ?? undefined,
+        strictKb: activeProfile?.strictKb,
+      });
+      let md = "";
+      for await (const c of fetchAIResponse({
+        provider,
+        selectedProvider: selectedAIProvider,
+        systemPrompt: aug.systemPrompt,
+        userMessage: aug.userMessage,
+      })) {
+        md += c;
+      }
+      if (md.trim()) {
+        await updateMeetingSummaryArtifact(meetingId, md);
+        setMeeting((prev) =>
+          prev ? { ...prev, summaryArtifactMd: md } : null
+        );
+      }
+    } catch (e) {
+      console.error("Wrap-up failed:", e);
+    } finally {
+      setWrapBusy(false);
+    }
+  }, [
+    meetingId,
+    segments,
+    allAiProviders,
+    selectedAIProvider,
+    activeProfile?.knowledgeMode,
+    activeProfile?.strictKb,
+  ]);
+
+  const addMeetingTrigger = useCallback(async () => {
+    if (!meetingId || !ntName.trim() || !ntPattern.trim()) return;
+    const id = `tr-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    await createCopilotTrigger({
+      id,
+      meetingId,
+      name: ntName.trim(),
+      matchType: ntMatch,
+      pattern: ntPattern.trim(),
+      cooldownSec: ntCool,
+      promptTemplate: ntTpl.trim() || "Suggest what to say next.",
+    });
+    const list = await listTriggersForMeeting(meetingId);
+    setTriggers(list);
+    setNtName("");
+    setNtPattern("");
+  }, [meetingId, ntName, ntPattern, ntMatch, ntCool, ntTpl]);
+
+  const removeTrigger = useCallback(
+    async (id: string) => {
+      await deleteCopilotTrigger(id);
+      if (meetingId) {
+        setTriggers(await listTriggersForMeeting(meetingId));
+      }
+    },
+    [meetingId]
+  );
+
+  const exportArtifact = useCallback(() => {
+    const text = meeting?.summaryArtifactMd?.trim();
+    if (!text) return;
+    const name = `${(meeting?.title || "meeting").replace(/[^\w\d-]+/g, "_")}-wrap-up.md`;
+    void navigator.clipboard.writeText(text).catch(() => {});
+    void saveMarkdownExport(text, name);
+  }, [meeting?.summaryArtifactMd, meeting?.title]);
+
+  const exportTranscript = useCallback(() => {
+    if (!meeting || segments.length === 0) return;
+    const text = buildTranscriptMarkdown({
+      meeting,
+      segments,
+      speakerLabels: speakerNames,
+    });
+    const name = `${(meeting.title || "meeting").replace(/[^\w\d-]+/g, "_")}-transcript.md`;
+    void navigator.clipboard.writeText(text).catch(() => {});
+    void saveMarkdownExport(text, name);
+  }, [meeting, segments, speakerNames]);
+
   const sendChatMessage = useCallback(async (message: string) => {
     if (!message.trim() || isAiLoading) return;
     const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: "user", content: message.trim() };
@@ -259,15 +601,30 @@ const MeetingView = () => {
     }
 
     const transcript = buildTranscriptContext(segments);
-    const contextPrompt = `${MEETING_SYSTEM_PROMPT}\n\nCurrent meeting transcript:\n${transcript}`;
+    const basePrompt = [
+      activeProfile?.systemPrompt?.trim(),
+      MEETING_SYSTEM_PROMPT,
+    ]
+      .filter((x) => x && x.length > 0)
+      .join("\n\n");
+    const contextPrompt = `${basePrompt}\n\nCurrent meeting transcript:\n${transcript}`;
     const assistantId = `a-${Date.now()}`;
     setChatMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "" }]);
 
     try {
       const history = chatMessages.map((m) => ({ id: m.id, role: m.role as "user" | "assistant", content: m.content, timestamp: Date.now() }));
+      const augmented = await augmentPromptsForChat({
+        systemPrompt: contextPrompt,
+        userMessage: message.trim(),
+        conversationKnowledgeMode: activeProfile?.knowledgeMode ?? undefined,
+        strictKb: activeProfile?.strictKb,
+      });
       const gen = fetchAIResponse({
-        provider, selectedProvider: selectedAIProvider, systemPrompt: contextPrompt,
-        userMessage: message.trim(), history,
+        provider,
+        selectedProvider: selectedAIProvider,
+        systemPrompt: augmented.systemPrompt,
+        userMessage: augmented.userMessage,
+        history,
       });
       for await (const chunk of gen) {
         setChatMessages((prev) => prev.map((m) =>
@@ -281,7 +638,35 @@ const MeetingView = () => {
     } finally {
       setIsAiLoading(false);
     }
-  }, [isAiLoading, allAiProviders, selectedAIProvider, segments, chatMessages]);
+  }, [
+    isAiLoading,
+    allAiProviders,
+    selectedAIProvider,
+    segments,
+    chatMessages,
+    activeProfile?.systemPrompt,
+    activeProfile?.knowledgeMode,
+    activeProfile?.strictKb,
+  ]);
+
+  const profileQuick = useMemo(() => {
+    try {
+      const raw = activeProfile?.quickActionsJson;
+      if (!raw) return [];
+      const arr = JSON.parse(raw) as { label: string; prompt: string }[];
+      return Array.isArray(arr) ? arr : [];
+    } catch {
+      return [];
+    }
+  }, [activeProfile?.quickActionsJson]);
+
+  /** Radix Select requires value to match a SelectItem; profiles load async so avoid invalid value on first paint. */
+  const profileSelectValue = useMemo(() => {
+    if (activeProfileId && profiles.some((p) => p.id === activeProfileId)) {
+      return activeProfileId;
+    }
+    return "_none_";
+  }, [activeProfileId, profiles]);
 
   if (isLoading) {
     return (
@@ -302,10 +687,11 @@ const MeetingView = () => {
 
   const isActive = meeting.status === "active";
   const uniqueSpeakers = [...new Set(segments.map((s) => s.speaker))];
+  const stealthShare = customizable.screenShareVisible?.isEnabled === false;
 
   return (
-    <div className="flex flex-1 flex-col">
-      <header className="pt-8">
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <header className="shrink-0 pt-8">
         <div className="flex items-center gap-3 mb-1">
           <Button variant="ghost" size="icon" onClick={() => navigate("/meetings")} className="size-8">
             <ArrowLeftIcon className="size-4" />
@@ -365,26 +751,54 @@ const MeetingView = () => {
             </div>
           </div>
 
-          {isActive && (
-            <div className="flex items-center gap-2 shrink-0">
-              {isTranscribing ? (
-                <Button size="sm" variant="outline" onClick={stopTranscription} className="gap-1.5">
-                  <MicOffIcon className="size-3" />Pause
+          <div className="flex flex-col items-end gap-2 shrink-0">
+            <Select
+              value={profileSelectValue}
+              onValueChange={(v) =>
+                setActiveProfileId(v === "_none_" ? null : v)
+              }
+            >
+              <SelectTrigger
+                className="h-8 w-[168px] text-xs"
+                title="Copilot profile (system prompt + knowledge defaults)"
+              >
+                <SelectValue placeholder="Copilot profile" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none_">No profile</SelectItem>
+                {profiles.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {isActive && (
+              <div className="flex items-center gap-2">
+                {isTranscribing ? (
+                  <Button size="sm" variant="outline" onClick={stopTranscription} className="gap-1.5">
+                    <MicOffIcon className="size-3" />Pause
+                  </Button>
+                ) : (
+                  <Button size="sm" variant="outline" onClick={handleStartTranscription} className="gap-1.5">
+                    <MicIcon className="size-3" />Transcribe
+                  </Button>
+                )}
+                <Button size="sm" variant="destructive" onClick={handleEndMeeting} className="gap-1.5">
+                  <SquareIcon className="size-3" />End
                 </Button>
-              ) : (
-                <Button size="sm" variant="outline" onClick={handleStartTranscription} className="gap-1.5">
-                  <MicIcon className="size-3" />Transcribe
-                </Button>
-              )}
-              <Button size="sm" variant="destructive" onClick={handleEndMeeting} className="gap-1.5">
-                <SquareIcon className="size-3" />End
-              </Button>
-            </div>
-          )}
+              </div>
+            )}
+          </div>
         </div>
 
         {transcriptionError && (
           <div className="mx-11 mt-2 px-3 py-2 rounded-lg bg-destructive/10 text-destructive text-xs">{transcriptionError}</div>
+        )}
+        {triggerNotice && (
+          <div className="mx-11 mt-2 px-3 py-2 rounded-lg border border-primary/30 bg-primary/10 text-xs text-foreground">
+            {triggerNotice}
+          </div>
         )}
 
         {showSpeakerEdit && (
@@ -417,7 +831,10 @@ const MeetingView = () => {
 
       <MicTranscriber isActive={isTranscribing} onTranscription={handleMicTranscription} />
 
-      <Tabs defaultValue="transcript" className="flex-1 flex flex-col mt-1">
+      <Tabs
+        defaultValue="transcript"
+        className="mt-1 flex min-h-0 flex-1 flex-col overflow-hidden"
+      >
         <TabsList className="w-fit">
           <TabsTrigger value="transcript" className="gap-1.5 text-xs">
             <FileTextIcon className="size-3" />Transcript
@@ -426,16 +843,34 @@ const MeetingView = () => {
           <TabsTrigger value="chat" className="gap-1.5 text-xs">
             <ZapIcon className="size-3" />AI Chat
           </TabsTrigger>
+          <TabsTrigger value="playbook" className="gap-1.5 text-xs">
+            <BookOpenIcon className="size-3" />Playbook
+          </TabsTrigger>
           <TabsTrigger value="summary" className="gap-1.5 text-xs">
             <MessageSquareIcon className="size-3" />Summary
           </TabsTrigger>
         </TabsList>
 
         {/* TRANSCRIPT TAB */}
-        <TabsContent value="transcript" className="flex-1 mt-0 relative">
+        <TabsContent value="transcript" className="relative mt-0 flex min-h-0 flex-1 flex-col">
+          {segments.length > 0 && (
+            <div className="flex shrink-0 justify-end pb-2 pr-1">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="gap-1.5 text-xs"
+                title="Download .md and copy to clipboard"
+                onClick={exportTranscript}
+              >
+                <DownloadIcon className="size-3.5" />
+                Export transcript
+              </Button>
+            </div>
+          )}
           <div
             ref={scrollRef}
-            className="h-[calc(100vh-14rem)] overflow-y-auto pr-4"
+            className="min-h-0 flex-1 overflow-y-auto pr-4"
             onScroll={(e) => {
               const el = e.currentTarget;
               const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
@@ -498,8 +933,11 @@ const MeetingView = () => {
         </TabsContent>
 
         {/* AI CHAT TAB */}
-        <TabsContent value="chat" className="flex-1 mt-0 flex flex-col">
-          <div ref={chatScrollRef} className="flex-1 h-[calc(100vh-20rem)] overflow-y-auto pr-4 py-2">
+        <TabsContent value="chat" className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div
+            ref={chatScrollRef}
+            className="min-h-0 flex-1 overflow-y-auto py-2 pr-4"
+          >
             {chatMessages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-4">
                 <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10">
@@ -519,6 +957,15 @@ const MeetingView = () => {
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/50 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:border-primary/30 transition-all duration-200"
                     >
                       <action.icon className="size-3" />{action.label}
+                    </button>
+                  ))}
+                  {profileQuick.map((q) => (
+                    <button
+                      key={q.label}
+                      onClick={() => sendChatMessage(q.prompt)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-primary/25 text-xs text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-all duration-200"
+                    >
+                      <ListChecksIcon className="size-3" />{q.label}
                     </button>
                   ))}
                 </div>
@@ -551,7 +998,7 @@ const MeetingView = () => {
           </div>
 
           {chatMessages.length > 0 && (
-            <div className="flex flex-wrap gap-1.5 px-1 py-2 border-t border-border/30">
+            <div className="flex shrink-0 flex-wrap gap-1.5 border-t border-border/30 px-1 py-2">
               {QUICK_ACTIONS.map((action) => (
                 <button
                   key={action.label}
@@ -565,7 +1012,7 @@ const MeetingView = () => {
             </div>
           )}
 
-          <div className="flex items-center gap-2 pt-1 pb-2">
+          <div className="flex shrink-0 items-center gap-2 pb-2 pt-1">
             <Textarea
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
@@ -585,22 +1032,211 @@ const MeetingView = () => {
           </div>
         </TabsContent>
 
+        {/* PLAYBOOK TAB — single scroll column: suggestions + triggers */}
+        <TabsContent
+          value="playbook"
+          className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden"
+        >
+          <div className="min-h-0 flex-1 overflow-y-auto pr-4">
+            <div className="flex flex-col gap-3 pb-4">
+              {riskNotesVisible && (
+                <details className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-xs text-muted-foreground">
+                  <summary className="cursor-pointer select-none font-medium text-foreground/90">
+                    Reminders (cost, privacy, screen AI)
+                  </summary>
+                  <ul className="mt-2 list-disc space-y-1.5 pl-4">
+                    <li>
+                      Playbook auto-refresh and triggers call your chosen AI
+                      provider and use tokens—pause or widen cooldowns if cost
+                      matters.
+                    </li>
+                    <li>
+                      Transcript text is sent to that provider when playbook,
+                      triggers, chat, or wrap-up run. Use settings you trust.
+                    </li>
+                    <li>
+                      Fusion assist (shortcut) needs image support and a
+                      vision-capable model; otherwise use text-only flows.
+                    </li>
+                  </ul>
+                </details>
+              )}
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  variant={playbookPaused ? "secondary" : "outline"}
+                  onClick={() => setPlaybookPaused((p) => !p)}
+                  disabled={!isActive}
+                >
+                  {playbookPaused ? "Resume" : "Pause"} auto-refresh
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void refreshPlaybook()}
+                  disabled={playbookLoading || !isActive}
+                >
+                  {playbookLoading ? (
+                    <Loader2Icon className="size-3 animate-spin" />
+                  ) : (
+                    "Refresh now"
+                  )}
+                </Button>
+                {meeting.playbookUpdatedAt != null && (
+                  <span className="text-[10px] text-muted-foreground">
+                    Last updated{" "}
+                    {new Date(meeting.playbookUpdatedAt).toLocaleTimeString()}
+                  </span>
+                )}
+              </div>
+              {stealthShare && (
+                <div className="flex items-start gap-2 rounded-lg border border-border/50 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                  <ShieldIcon className="mt-0.5 size-4 shrink-0" />
+                  <span>
+                    Screen-share stealth is on (window hidden from capture).
+                    Playbook text is minimized here—open EchoIdeal only when
+                    safe.
+                  </span>
+                </div>
+              )}
+              <div
+                className={
+                  stealthShare
+                    ? "max-h-32 select-none overflow-hidden rounded-md border border-border/30 py-2 text-sm leading-relaxed opacity-40 pointer-events-none"
+                    : "py-2 text-sm leading-relaxed"
+                }
+              >
+                {playbookMd ? (
+                  <Markdown>{playbookMd}</Markdown>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    {isActive
+                      ? "Playbook updates on a timer when there is transcript text. Pause anytime."
+                      : "No playbook for this meeting."}
+                  </p>
+                )}
+              </div>
+
+              <div className="border-t border-border/40 pt-3 space-y-2">
+            <p className="text-xs font-medium text-muted-foreground">Proactive triggers (this meeting)</p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Input
+                placeholder="Name"
+                value={ntName}
+                onChange={(e) => setNtName(e.target.value)}
+                className="h-8 text-xs"
+              />
+              <Input
+                placeholder="Keyword or regex pattern"
+                value={ntPattern}
+                onChange={(e) => setNtPattern(e.target.value)}
+                className="h-8 text-xs"
+              />
+              <Select
+                value={ntMatch}
+                onValueChange={(v) => setNtMatch(v as "keyword" | "regex")}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="keyword">Keyword contains</SelectItem>
+                  <SelectItem value="regex">Regex</SelectItem>
+                </SelectContent>
+              </Select>
+              <Input
+                type="number"
+                min={5}
+                value={ntCool}
+                onChange={(e) => setNtCool(Number(e.target.value) || 60)}
+                className="h-8 text-xs"
+                title="Cooldown seconds"
+              />
+            </div>
+            <Textarea
+              value={ntTpl}
+              onChange={(e) => setNtTpl(e.target.value)}
+              className="min-h-[56px] text-xs"
+              placeholder="System / template prompt when fired"
+            />
+            <Button size="sm" className="gap-1" onClick={() => void addMeetingTrigger()}>
+              <PlusIcon className="size-3" />Add trigger
+            </Button>
+            <ul className="space-y-2 text-xs">
+              {triggers.map((t) => (
+                <li
+                  key={t.id}
+                  className="flex items-start justify-between gap-2 rounded-md border border-border/40 p-2"
+                >
+                  <div>
+                    <p className="font-medium">{t.name}</p>
+                    <p className="text-muted-foreground break-all">
+                      {t.matchType}: {t.pattern} · {t.cooldownSec}s cooldown
+                    </p>
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-7 shrink-0"
+                    onClick={() => void removeTrigger(t.id)}
+                  >
+                    <Trash2Icon className="size-3.5" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+              </div>
+            </div>
+          </div>
+        </TabsContent>
+
         {/* SUMMARY TAB */}
-        <TabsContent value="summary" className="flex-1 mt-0">
-          <ScrollArea className="h-[calc(100vh-14rem)] pr-4">
+        <TabsContent value="summary" className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden">
+          <ScrollArea className="min-h-0 flex-1 pr-4">
+            <div className="space-y-4 pb-4">
+            <div className="flex flex-wrap gap-2 py-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => void handleWrapUp()}
+                disabled={wrapBusy || segments.length === 0}
+              >
+                {wrapBusy ? (
+                  <Loader2Icon className="size-3 animate-spin" />
+                ) : (
+                  "Wrap up (AI artifact)"
+                )}
+              </Button>
+              {meeting.summaryArtifactMd && (
+                <Button size="sm" variant="outline" className="gap-1" onClick={exportArtifact}>
+                  <DownloadIcon className="size-3" />
+                  Export / copy
+                </Button>
+              )}
+            </div>
+            {meeting.summaryArtifactMd && (
+              <div className="py-2 text-sm text-foreground/90 leading-relaxed border-b border-border/30 mb-4">
+                <p className="text-xs font-semibold text-muted-foreground mb-2">Wrap-up artifact</p>
+                <Markdown>{meeting.summaryArtifactMd}</Markdown>
+              </div>
+            )}
             {meeting.summary ? (
               <div className="py-4 text-sm text-foreground/90 leading-relaxed">
+                <p className="text-xs font-semibold text-muted-foreground mb-2">End-of-meeting summary</p>
                 <Markdown>{meeting.summary}</Markdown>
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
                 <MessageSquareIcon className="size-8 opacity-30" />
-                <p className="text-sm">No summary available yet.</p>
-                <p className="text-xs text-muted-foreground/60">
-                  {isActive ? "A summary will be auto-generated when the meeting ends." : "No summary was generated for this meeting."}
+                <p className="text-sm">No auto-summary yet.</p>
+                <p className="text-xs text-muted-foreground/60 text-center max-w-sm">
+                  {isActive
+                    ? "A summary is generated when you end the meeting, or use Wrap up for a stored artifact."
+                    : "No summary was generated for this meeting."}
                 </p>
               </div>
             )}
+            </div>
           </ScrollArea>
         </TabsContent>
       </Tabs>

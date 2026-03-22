@@ -3,6 +3,7 @@ mod activate;
 mod api;
 mod capture;
 mod db;
+mod kb;
 mod shortcuts;
 mod window;
 use std::sync::{Arc, Mutex};
@@ -65,7 +66,8 @@ pub fn run() {
             }),
             ..Default::default()
         }))
-        .plugin(tauri_plugin_machine_uid::init());
+        .plugin(tauri_plugin_machine_uid::init())
+        .plugin(tauri_plugin_dialog::init());
     #[cfg(target_os = "macos")]
     {
         builder = builder.plugin(tauri_nspanel::init());
@@ -117,6 +119,7 @@ pub fn run() {
             speaker::get_audio_sample_rate,
             speaker::get_input_devices,
             speaker::get_output_devices,
+            kb::kb_scan_folder,
         ])
         .setup(|app| {
             // Setup main window positioning

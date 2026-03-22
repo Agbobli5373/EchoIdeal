@@ -19,6 +19,7 @@
     "core:window:allow-start-dragging",
     "sql:default",
     "sql:allow-execute",
+    "dialog:default",
     "posthog:default",
     "posthog:allow-capture",
     "autostart:allow-enable",

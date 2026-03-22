@@ -11,6 +11,7 @@ import {
   generateMessageId,
   generateRequestId,
   getResponseSettings,
+  augmentPromptsForChat,
 } from "@/lib";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -29,6 +30,7 @@ interface ChatMessage {
   role: "user" | "assistant" | "system";
   content: string;
   timestamp: number;
+  knowledgeSources?: string[];
 }
 
 interface ChatConversation {
@@ -37,6 +39,12 @@ interface ChatConversation {
   messages: ChatMessage[];
   createdAt: number;
   updatedAt: number;
+  knowledgeMode?:
+    | "inherit"
+    | "off"
+    | "local"
+    | "web"
+    | "local_web";
 }
 
 interface ChatCompletionState {
@@ -205,6 +213,14 @@ export const useChatCompletion = (
           return;
         }
 
+        if (!messages) {
+          setState((prev) => ({
+            ...prev,
+            error: "Conversation not loaded. Return to the chat list and try again.",
+          }));
+          return;
+        }
+
         // Add user message to UI immediately
         const timestamp = Date.now();
         const userMsg: ChatMessage = {
@@ -215,8 +231,8 @@ export const useChatCompletion = (
         };
 
         const updatedMessages = {
-          ...messages!,
-          messages: [...(messages?.messages || []), userMsg],
+          ...messages,
+          messages: [...messages.messages, userMsg],
         };
         setMessages(updatedMessages);
 
@@ -233,15 +249,23 @@ export const useChatCompletion = (
         setTimeout(scrollToBottom, 100);
 
         let fullResponse = "";
+        let retrievalSources: string[] = [];
 
         try {
+          const augmented = await augmentPromptsForChat({
+            systemPrompt: systemPrompt || undefined,
+            userMessage: input,
+            conversationKnowledgeMode: messages.knowledgeMode,
+          });
+          retrievalSources = augmented.sources;
+
           // Use the fetchAIResponse function with signal
           for await (const chunk of fetchAIResponse({
             provider: useEchoIdealAPI ? undefined : provider,
             selectedProvider: selectedAIProvider,
-            systemPrompt: systemPrompt || undefined,
+            systemPrompt: augmented.systemPrompt,
             history: messageHistory,
-            userMessage: input,
+            userMessage: augmented.userMessage,
             imagesBase64,
             signal,
           })) {
@@ -321,13 +345,11 @@ export const useChatCompletion = (
             role: "assistant",
             content: fullResponse,
             timestamp: timestamp + MESSAGE_ID_OFFSET,
+            knowledgeSources:
+              retrievalSources.length > 0 ? retrievalSources : undefined,
           };
 
-          const newMessages = [
-            ...(messages?.messages || []),
-            userMsg,
-            assistantMsg,
-          ];
+          const newMessages = [...messages.messages, userMsg, assistantMsg];
 
           // Get existing conversation if updating
           let existingConversation = null;
@@ -341,7 +363,7 @@ export const useChatCompletion = (
 
           const title =
             existingConversation?.title ||
-            messages?.title ||
+            messages.title ||
             generateConversationTitle(input);
 
           const conversation: ChatConversation = {
@@ -349,10 +371,12 @@ export const useChatCompletion = (
             title,
             messages: newMessages,
             createdAt:
-              existingConversation?.createdAt ||
-              messages?.createdAt ||
-              timestamp,
+              existingConversation?.createdAt || messages.createdAt || timestamp,
             updatedAt: timestamp,
+            knowledgeMode:
+              existingConversation?.knowledgeMode ??
+              messages.knowledgeMode ??
+              "inherit",
           };
 
           try {
@@ -391,6 +415,7 @@ export const useChatCompletion = (
       allAiProviders,
       systemPrompt,
       messages,
+      messages?.knowledgeMode,
       conversationId,
       setMessages,
     ]

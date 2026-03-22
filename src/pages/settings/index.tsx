@@ -3,6 +3,7 @@ import {
   AlwaysOnTopToggle,
   AppIconToggle,
   AutostartToggle,
+  KnowledgeSearchSettings,
   ScreenShareToggle,
 } from "./components";
 import { PageLayout } from "@/layouts";
@@ -12,6 +13,9 @@ const Settings = () => {
     <PageLayout title="Settings" description="Manage your settings">
       {/* Screen Share Visibility Toggle */}
       <ScreenShareToggle />
+
+      {/* Knowledge & web search */}
+      <KnowledgeSearchSettings />
 
       {/* Theme */}
       <Theme />

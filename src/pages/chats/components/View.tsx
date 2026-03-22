@@ -6,9 +6,14 @@ import {
   Markdown,
   Textarea,
   GetLicense,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@/components";
-import { getConversationById } from "@/lib";
-import { ChatConversation } from "@/types";
+import { getConversationById, updateConversationKnowledgeMode } from "@/lib";
+import type { ChatConversation, ConversationKnowledgeMode } from "@/types";
 import {
   Download,
   MessageCircleIcon,
@@ -88,7 +93,34 @@ const View = () => {
       title={messages?.title || ""}
       description={`${messages?.messages.length} messages in this conversation`}
       rightSlot={
-        <div className="flex flex-row items-center gap-2">
+        <div className="flex flex-row flex-wrap items-center gap-2">
+          {messages && (
+            <Select
+              value={messages.knowledgeMode ?? "inherit"}
+              onValueChange={async (v) => {
+                const mode = v as ConversationKnowledgeMode;
+                if (!conversationId) return;
+                await updateConversationKnowledgeMode(conversationId, mode);
+                setMessages((prev) =>
+                  prev ? { ...prev, knowledgeMode: mode } : null
+                );
+              }}
+            >
+              <SelectTrigger
+                className="h-8 w-[200px] text-xs"
+                title="Retrieval context for this chat"
+              >
+                <SelectValue placeholder="Context" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="inherit">Use app default</SelectItem>
+                <SelectItem value="off">Off</SelectItem>
+                <SelectItem value="local">Local knowledge only</SelectItem>
+                <SelectItem value="web">Web search only</SelectItem>
+                <SelectItem value="local_web">Local + web</SelectItem>
+              </SelectContent>
+            </Select>
+          )}
           <Button
             variant="outline"
             title="Open this conversation in overlay"
@@ -198,6 +230,22 @@ const View = () => {
                       }`}
                     >
                       <Markdown>{message.content}</Markdown>
+                      {!isUser &&
+                        message.knowledgeSources &&
+                        message.knowledgeSources.length > 0 && (
+                          <details className="mt-2 border-t border-border/50 pt-2 text-[10px] text-muted-foreground">
+                            <summary className="cursor-pointer select-none">
+                              Sources
+                            </summary>
+                            <ul className="mt-1 list-disc pl-4 space-y-0.5">
+                              {message.knowledgeSources.map((s) => (
+                                <li key={s} className="break-all">
+                                  {s}
+                                </li>
+                              ))}
+                            </ul>
+                          </details>
+                        )}
                     </Card>
                     <Badge
                       variant="outline"

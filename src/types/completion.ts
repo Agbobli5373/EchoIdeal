@@ -7,12 +7,21 @@ export interface AttachedFile {
   size: number;
 }
 
+export type ConversationKnowledgeMode =
+  | "inherit"
+  | "off"
+  | "local"
+  | "web"
+  | "local_web";
+
 export interface ChatMessage {
   id: string;
   role: "user" | "assistant" | "system";
   content: string;
   timestamp: number;
   attachedFiles?: AttachedFile[];
+  /** File paths or URLs used as retrieval context for this assistant message */
+  knowledgeSources?: string[];
 }
 
 export interface ChatConversation {
@@ -21,6 +30,8 @@ export interface ChatConversation {
   messages: ChatMessage[];
   createdAt: number;
   updatedAt: number;
+  /** Per-thread override; inherit uses App settings default */
+  knowledgeMode?: ConversationKnowledgeMode;
 }
 
 export interface CompletionState {

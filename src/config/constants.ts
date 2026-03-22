@@ -22,7 +22,18 @@ export const STORAGE_KEYS = {
   SUPPORTS_IMAGES: "supports_images",
   /** Default knowledge / web search mode for new chats (JSON: { defaultKnowledgeMode, tavilyApiKey? }) */
   KNOWLEDGE_SETTINGS: "knowledge_settings",
+  ACTIVE_COPILOT_PROFILE_ID: "active_copilot_profile_id",
+  /** When "true", log assistant retrieval metadata to SQLite (assistant_message_audit) */
+  TRUST_AUDIT_LOG_ENABLED: "trust_audit_log_enabled",
+  /**
+   * When "true", show cost/privacy/multimodal reminders on the meeting Playbook tab.
+   * Off by default to keep the UI minimal.
+   */
+  COPILOT_RISK_NOTES_VISIBLE: "copilot_risk_notes_visible",
 } as const;
+
+/** Dispatched when COPILOT_RISK_NOTES_VISIBLE changes (same window). */
+export const COPILOT_RISK_NOTES_CHANGED_EVENT = "echoideal-copilot-risk-notes-changed";
 
 // Max number of files that can be attached to a message
 export const MAX_FILES = 6;

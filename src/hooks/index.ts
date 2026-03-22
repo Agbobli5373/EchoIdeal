@@ -7,6 +7,7 @@ export * from "./useCustomSttProviders";
 export * from "./useSettings";
 export * from "./useGlobalShortcuts";
 export * from "./useShortcuts";
+export * from "./useActiveProfile";
 export * from "./useSystemAudio";
 export * from "./useHistory";
 export * from "./useCopyToClipboard";

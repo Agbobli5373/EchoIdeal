@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { GetLicense } from "@/components";
-import { EchoIdealApiSetup, Usage } from "./components";
+import { EchoIdealApiSetup, Usage, CopilotProfilePicker } from "./components";
 import { PageLayout } from "@/layouts";
 import { useApp } from "@/contexts";
 
@@ -54,6 +54,8 @@ const Dashboard = () => {
     >
       {/* EchoIdeal API Setup */}
       <EchoIdealApiSetup />
+
+      <CopilotProfilePicker />
 
       <Usage
         loading={loadingActivity}

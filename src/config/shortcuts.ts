@@ -81,4 +81,25 @@ export const DEFAULT_SHORTCUT_ACTIONS: ShortcutAction[] = [
       linux: "ctrl+shift+e",
     },
   },
+  {
+    id: "fusion_assist",
+    name: "Assist with screen + transcript",
+    description:
+      "Capture screen and combine with the latest active meeting transcript for one AI request",
+    defaultKey: {
+      macos: "cmd+shift+y",
+      windows: "ctrl+shift+y",
+      linux: "ctrl+shift+y",
+    },
+  },
+  {
+    id: "overlay_peek",
+    name: "Peek overlay",
+    description: "Temporarily dim the overlay for stealth viewing",
+    defaultKey: {
+      macos: "cmd+shift+.",
+      windows: "ctrl+shift+.",
+      linux: "ctrl+shift+.",
+    },
+  },
 ];

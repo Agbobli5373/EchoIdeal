@@ -32,6 +32,8 @@ export interface ChatConversation {
   updatedAt: number;
   /** Per-thread override; inherit uses App settings default */
   knowledgeMode?: ConversationKnowledgeMode;
+  /** When true, assistant must only use retrieved KB/web context */
+  strictKb?: boolean;
 }
 
 export interface CompletionState {

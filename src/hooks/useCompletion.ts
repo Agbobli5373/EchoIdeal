@@ -15,6 +15,13 @@ import {
   generateRequestId,
   getResponseSettings,
 } from "@/lib";
+import { useCopilotProfile } from "@/contexts/copilot-profile.context";
+import {
+  getActiveMeeting,
+  getSegmentsByMeetingId,
+} from "@/lib/database/meetings.action";
+import { buildTranscriptContext } from "@/lib/meeting-transcript";
+import { augmentPromptsForChat } from "@/lib/knowledge/augment-prompts";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
@@ -59,7 +66,9 @@ export const useCompletion = () => {
     systemPrompt,
     screenshotConfiguration,
     setScreenshotConfiguration,
+    supportsImages,
   } = useApp();
+  const { activeProfile } = useCopilotProfile();
   const globalShortcuts = useGlobalShortcuts();
 
   const [state, setState] = useState<CompletionState>({
@@ -226,12 +235,17 @@ export const useCompletion = () => {
           response: "",
         }));
 
+        const mergedSystem =
+          [activeProfile?.systemPrompt?.trim(), systemPrompt?.trim()]
+            .filter((x) => x && x.length > 0)
+            .join("\n\n") || systemPrompt || undefined;
+
         try {
           // Use the fetchAIResponse function with signal
           for await (const chunk of fetchAIResponse({
             provider: useEchoIdealAPI ? undefined : provider,
             selectedProvider: selectedAIProvider,
-            systemPrompt: systemPrompt || undefined,
+            systemPrompt: mergedSystem,
             history: messageHistory,
             userMessage: effectiveInput,
             imagesBase64,
@@ -309,6 +323,7 @@ export const useCompletion = () => {
       allAiProviders,
       systemPrompt,
       state.conversationHistory,
+      activeProfile?.systemPrompt,
     ]
   );
 
@@ -630,11 +645,16 @@ export const useCompletion = () => {
               response: "",
             }));
 
+            const mergedVisionSystem =
+              [activeProfile?.systemPrompt?.trim(), systemPrompt?.trim()]
+                .filter((x) => x && x.length > 0)
+                .join("\n\n") || systemPrompt || undefined;
+
             // Use the fetchAIResponse function with image and signal
             for await (const chunk of fetchAIResponse({
               provider: useEchoIdealAPI ? undefined : provider,
               selectedProvider: selectedAIProvider,
-              systemPrompt: systemPrompt || undefined,
+              systemPrompt: mergedVisionSystem,
               history: messageHistory,
               userMessage: prompt,
               imagesBase64: [base64],
@@ -722,10 +742,158 @@ export const useCompletion = () => {
       selectedAIProvider,
       allAiProviders,
       systemPrompt,
+      activeProfile?.systemPrompt,
       saveCurrentConversation,
       inputRef,
     ]
   );
+
+  const toggleOverlayPeek = useCallback(() => {
+    document.documentElement.classList.toggle("echoideal-peek");
+  }, []);
+
+  const runFusionAssist = useCallback(async () => {
+    if (!supportsImages) {
+      setState((prev) => ({
+        ...prev,
+        error:
+          "Enable image support and use a vision-capable provider for fusion assist.",
+      }));
+      return;
+    }
+    setIsScreenshotLoading(true);
+    try {
+      const meeting = await getActiveMeeting();
+      const segments = meeting
+        ? await getSegmentsByMeetingId(meeting.id)
+        : [];
+      const transcript = buildTranscriptContext(segments, 50);
+      const userText = `Fusion assist — combine recent speech with the screen.\n\nTranscript:\n${transcript}`;
+      const augmented = await augmentPromptsForChat({
+        systemPrompt: activeProfile?.systemPrompt || undefined,
+        userMessage: userText,
+        conversationKnowledgeMode: activeProfile?.knowledgeMode ?? undefined,
+        strictKb: activeProfile?.strictKb,
+      });
+      let base64: string;
+      try {
+        base64 = await invoke<string>("capture_to_base64");
+      } catch {
+        setState((prev) => ({
+          ...prev,
+          error: "Could not capture the screen.",
+        }));
+        return;
+      }
+      if (!base64) {
+        setState((prev) => ({
+          ...prev,
+          error: "Screenshot was empty.",
+        }));
+        return;
+      }
+
+      const requestId = generateRequestId();
+      currentRequestIdRef.current = requestId;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      abortControllerRef.current = new AbortController();
+      const signal = abortControllerRef.current.signal;
+
+      const useEchoIdealAPI = await shouldUseEchoIdealAPI();
+      if (!selectedAIProvider.provider && !useEchoIdealAPI) {
+        setState((prev) => ({
+          ...prev,
+          error: "Please select an AI provider in settings",
+        }));
+        return;
+      }
+      const provider = allAiProviders.find(
+        (p) => p.id === selectedAIProvider.provider
+      );
+      if (!provider && !useEchoIdealAPI) {
+        setState((prev) => ({
+          ...prev,
+          error: "Invalid provider selected",
+        }));
+        return;
+      }
+
+      setState((prev) => ({
+        ...prev,
+        input: "Fusion assist",
+        isLoading: true,
+        error: null,
+        response: "",
+      }));
+
+      let fullResponse = "";
+      const messageHistory = state.conversationHistory.map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      }));
+
+      for await (const chunk of fetchAIResponse({
+        provider: useEchoIdealAPI ? undefined : provider,
+        selectedProvider: selectedAIProvider,
+        systemPrompt: augmented.systemPrompt,
+        history: messageHistory,
+        userMessage: augmented.userMessage,
+        imagesBase64: [base64],
+        signal,
+      })) {
+        if (currentRequestIdRef.current !== requestId || signal.aborted) {
+          return;
+        }
+        fullResponse += chunk;
+        setState((prev) => ({
+          ...prev,
+          response: prev.response + chunk,
+        }));
+      }
+
+      if (currentRequestIdRef.current !== requestId || signal.aborted) {
+        return;
+      }
+
+      setState((prev) => ({ ...prev, isLoading: false }));
+      setTimeout(() => inputRef.current?.focus(), 100);
+
+      if (fullResponse) {
+        const attachedFile: AttachedFile = {
+          id: Date.now().toString(),
+          name: `fusion_${Date.now()}.png`,
+          type: "image/png",
+          base64,
+          size: base64.length,
+        };
+        await saveCurrentConversation(
+          "Fusion assist (transcript + screen)",
+          fullResponse,
+          [attachedFile]
+        );
+        setState((prev) => ({ ...prev, input: "" }));
+      }
+    } catch (e: unknown) {
+      setState((prev) => ({
+        ...prev,
+        error: e instanceof Error ? e.message : "Fusion assist failed",
+        isLoading: false,
+      }));
+    } finally {
+      setIsScreenshotLoading(false);
+    }
+  }, [
+    supportsImages,
+    activeProfile?.systemPrompt,
+    activeProfile?.knowledgeMode,
+    activeProfile?.strictKb,
+    selectedAIProvider,
+    allAiProviders,
+    state.conversationHistory,
+    saveCurrentConversation,
+  ]);
 
   const onRemoveAllFiles = () => {
     clearFiles();
@@ -1032,6 +1200,7 @@ export const useCompletion = () => {
         abortControllerRef.current = null;
       }
       currentRequestIdRef.current = null;
+      document.documentElement.classList.remove("echoideal-peek");
     };
   }, []);
 
@@ -1041,14 +1210,29 @@ export const useCompletion = () => {
     globalShortcuts.registerInputRef(inputRef.current);
     globalShortcuts.registerScreenshotCallback(captureScreenshot);
     globalShortcuts.registerScreenshotAnalyzeCallback(captureAndAnalyze);
+    globalShortcuts.registerCustomShortcutCallback("fusion_assist", () => {
+      void runFusionAssist();
+    });
+    globalShortcuts.registerCustomShortcutCallback(
+      "overlay_peek",
+      toggleOverlayPeek
+    );
+    return () => {
+      globalShortcuts.unregisterCustomShortcutCallback("fusion_assist");
+      globalShortcuts.unregisterCustomShortcutCallback("overlay_peek");
+    };
   }, [
     globalShortcuts.registerAudioCallback,
     globalShortcuts.registerInputRef,
     globalShortcuts.registerScreenshotCallback,
     globalShortcuts.registerScreenshotAnalyzeCallback,
+    globalShortcuts.registerCustomShortcutCallback,
+    globalShortcuts.unregisterCustomShortcutCallback,
     toggleRecording,
     captureScreenshot,
     captureAndAnalyze,
+    runFusionAssist,
+    toggleOverlayPeek,
     inputRef,
   ]);
 

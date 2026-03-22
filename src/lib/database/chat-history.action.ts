@@ -14,6 +14,7 @@ interface DbConversation {
   created_at: number;
   updated_at: number;
   knowledge_mode?: string;
+  strict_kb?: number;
 }
 
 /**
@@ -116,13 +117,14 @@ export async function createConversation(
   try {
     // Insert conversation
     await db.execute(
-      "INSERT INTO conversations (id, title, created_at, updated_at, knowledge_mode) VALUES (?, ?, ?, ?, ?)",
+      "INSERT INTO conversations (id, title, created_at, updated_at, knowledge_mode, strict_kb) VALUES (?, ?, ?, ?, ?, ?)",
       [
         conversation.id,
         conversation.title,
         conversation.createdAt || Date.now(),
         conversation.updatedAt || Date.now(),
         conversation.knowledgeMode ?? "inherit",
+        conversation.strictKb ? 1 : 0,
       ]
     );
 
@@ -209,6 +211,7 @@ export async function getAllConversations(): Promise<ChatConversation[]> {
       createdAt: conv.created_at,
       updatedAt: conv.updated_at,
       knowledgeMode: rowKnowledgeMode(conv.knowledge_mode),
+      strictKb: (conv.strict_kb ?? 0) === 1,
       messages:
         messagesByConversation.get(conv.id)?.map((msg) => ({
           id: msg.id,
@@ -266,6 +269,7 @@ export async function getConversationById(
       createdAt: conv.created_at,
       updatedAt: conv.updated_at,
       knowledgeMode: rowKnowledgeMode(conv.knowledge_mode),
+      strictKb: (conv.strict_kb ?? 0) === 1,
       messages: messages.map((msg) => ({
         id: msg.id,
         role: msg.role,
@@ -306,13 +310,23 @@ export async function updateConversation(
       knowledgeMode = rowKnowledgeMode(kmRows[0]?.knowledge_mode);
     }
 
+    let strictKb = conversation.strictKb;
+    if (strictKb === undefined) {
+      const skRows = await db.select<{ strict_kb?: number }[]>(
+        "SELECT strict_kb FROM conversations WHERE id = ?",
+        [conversation.id]
+      );
+      strictKb = (skRows[0]?.strict_kb ?? 0) === 1;
+    }
+
     // Update conversation
     const updateResult = await db.execute(
-      "UPDATE conversations SET title = ?, updated_at = ?, knowledge_mode = ? WHERE id = ?",
+      "UPDATE conversations SET title = ?, updated_at = ?, knowledge_mode = ?, strict_kb = ? WHERE id = ?",
       [
         conversation.title,
         conversation.updatedAt,
         knowledgeMode,
+        strictKb ? 1 : 0,
         conversation.id,
       ]
     );
@@ -474,6 +488,17 @@ export async function updateConversationKnowledgeMode(
   await db.execute(
     "UPDATE conversations SET knowledge_mode = ?, updated_at = ? WHERE id = ?",
     [knowledgeMode, Date.now(), conversationId]
+  );
+}
+
+export async function updateConversationStrictKb(
+  conversationId: string,
+  strictKb: boolean
+): Promise<void> {
+  const db = await getDatabase();
+  await db.execute(
+    "UPDATE conversations SET strict_kb = ?, updated_at = ? WHERE id = ?",
+    [strictKb ? 1 : 0, Date.now(), conversationId]
   );
 }
 

@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useApp } from "@/contexts";
-import { MAX_FILES } from "@/config";
+import { MAX_FILES, STORAGE_KEYS } from "@/config";
 import {
   fetchAIResponse,
   saveConversation,
@@ -12,6 +12,8 @@ import {
   generateRequestId,
   getResponseSettings,
   augmentPromptsForChat,
+  safeLocalStorage,
+  insertAssistantMessageAudit,
 } from "@/lib";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -45,6 +47,7 @@ interface ChatConversation {
     | "local"
     | "web"
     | "local_web";
+  strictKb?: boolean;
 }
 
 interface ChatCompletionState {
@@ -256,6 +259,7 @@ export const useChatCompletion = (
             systemPrompt: systemPrompt || undefined,
             userMessage: input,
             conversationKnowledgeMode: messages.knowledgeMode,
+            strictKb: !!messages.strictKb,
           });
           retrievalSources = augmented.sources;
 
@@ -377,10 +381,30 @@ export const useChatCompletion = (
               existingConversation?.knowledgeMode ??
               messages.knowledgeMode ??
               "inherit",
+            strictKb:
+              existingConversation?.strictKb ?? messages.strictKb ?? false,
           };
 
           try {
             await saveConversation(conversation);
+
+            if (
+              safeLocalStorage.getItem(STORAGE_KEYS.TRUST_AUDIT_LOG_ENABLED) ===
+              "true"
+            ) {
+              try {
+                await insertAssistantMessageAudit({
+                  id: `audit-${timestamp}-${assistantMsg.id}`,
+                  conversationId,
+                  messageId: assistantMsg.id,
+                  modelId: selectedAIProvider.provider || "echoideal_cloud",
+                  mode: messages.knowledgeMode ?? "inherit",
+                  sources: retrievalSources,
+                });
+              } catch {
+                /* optional audit */
+              }
+            }
 
             // Reload conversation from database to ensure consistency
             const updatedConversation = await getConversationById(
@@ -416,6 +440,7 @@ export const useChatCompletion = (
       systemPrompt,
       messages,
       messages?.knowledgeMode,
+      messages?.strictKb,
       conversationId,
       setMessages,
     ]

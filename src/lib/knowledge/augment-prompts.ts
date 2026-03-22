@@ -8,6 +8,8 @@ import {
 
 const CONTEXT_INSTRUCTION = `The following sections contain retrieved information (local files and/or web search). Use them when they help answer the question; mention sources briefly (file path or page title). If they are irrelevant or empty, answer from general knowledge and say that no matching documents or web results were found.`;
 
+const STRICT_CONTEXT_INSTRUCTION = `The following sections are the ONLY approved context (local files and/or web search). Answer ONLY using this context. If the answer is not clearly supported by this context, reply exactly: "I don't have that in the retrieved context." Do not use outside knowledge. Mention sources briefly (file path or page title).`;
+
 const MAX_CONTEXT_CHARS = 8000;
 
 function truncateBlock(s: string, budget: number): string {
@@ -60,8 +62,11 @@ export async function augmentPromptsForChat(params: {
   systemPrompt?: string;
   userMessage: string;
   conversationKnowledgeMode?: ConversationKnowledgeMode;
+  /** Strict KB-only behavior when retrieval is on */
+  strictKb?: boolean;
 }): Promise<AugmentPromptsResult> {
-  const { systemPrompt, userMessage, conversationKnowledgeMode } = params;
+  const { systemPrompt, userMessage, conversationKnowledgeMode, strictKb } =
+    params;
   const global = getKnowledgeGlobalSettings();
   const effective = resolveEffectiveKnowledgeMode(
     conversationKnowledgeMode,
@@ -115,7 +120,10 @@ export async function augmentPromptsForChat(params: {
   }
 
   const contextBody = blocks.join("\n");
-  const mergedSystem = [systemPrompt?.trim(), CONTEXT_INSTRUCTION, contextBody]
+  const instruction = strictKb
+    ? STRICT_CONTEXT_INSTRUCTION
+    : CONTEXT_INSTRUCTION;
+  const mergedSystem = [systemPrompt?.trim(), instruction, contextBody]
     .filter(Boolean)
     .join("\n\n");
 

@@ -21,6 +21,7 @@
     "sql:default",
     "sql:allow-execute",
     "dialog:default",
+    "dialog:allow-save",
     "posthog:default",
     "posthog:allow-capture",
     "autostart:allow-enable",

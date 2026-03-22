@@ -24,5 +24,11 @@ pub fn migrations() -> Vec<Migration> {
             sql: include_str!("migrations/meetings.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 4,
+            description: "knowledge_base_and_conversation_mode",
+            sql: include_str!("migrations/knowledge-base.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }

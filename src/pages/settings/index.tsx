@@ -5,6 +5,7 @@ import {
   AutostartToggle,
   KnowledgeSearchSettings,
   ScreenShareToggle,
+  CopilotRiskNotesToggle,
 } from "./components";
 import { PageLayout } from "@/layouts";
 
@@ -16,6 +17,8 @@ const Settings = () => {
 
       {/* Knowledge & web search */}
       <KnowledgeSearchSettings />
+
+      <CopilotRiskNotesToggle />
 
       {/* Theme */}
       <Theme />

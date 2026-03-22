@@ -17,9 +17,12 @@ import {
   indexKbFolder,
   listKbRoots,
   removeKbRoot,
+  safeLocalStorage,
   type GlobalKnowledgeMode,
   type KbRootRow,
 } from "@/lib";
+import { STORAGE_KEYS } from "@/config";
+import { Switch } from "@/components/ui/switch";
 
 const MODE_OPTIONS: { value: GlobalKnowledgeMode; label: string }[] = [
   { value: "off", label: "Off" },
@@ -34,6 +37,10 @@ export const KnowledgeSearchSettings = () => {
   const [roots, setRoots] = useState<KbRootRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [auditLog, setAuditLog] = useState(
+    () =>
+      safeLocalStorage.getItem(STORAGE_KEYS.TRUST_AUDIT_LOG_ENABLED) === "true"
+  );
 
   const load = useCallback(async () => {
     const s = getKnowledgeGlobalSettings();
@@ -192,6 +199,27 @@ export const KnowledgeSearchSettings = () => {
             ))}
           </ul>
         )}
+      </div>
+
+      <div className="space-y-3 border-t border-input/50 pt-6 max-w-md">
+        <Header
+          title="Trust / audit"
+          description="Optional local logging of retrieval metadata for assistant replies (model id, knowledge mode, source paths or URLs). Stored only in your SQLite database on this device."
+        />
+        <div className="flex items-center justify-between gap-4">
+          <Label htmlFor="trust-audit">Log assistant retrieval metadata</Label>
+          <Switch
+            id="trust-audit"
+            checked={auditLog}
+            onCheckedChange={(on) => {
+              setAuditLog(on);
+              safeLocalStorage.setItem(
+                STORAGE_KEYS.TRUST_AUDIT_LOG_ENABLED,
+                on ? "true" : "false"
+              );
+            }}
+          />
+        </div>
       </div>
 
       {msg && (

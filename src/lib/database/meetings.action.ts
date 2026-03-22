@@ -9,6 +9,9 @@ export interface Meeting {
   summary: string | null;
   createdAt: number;
   updatedAt: number;
+  lastPlaybookJson: string | null;
+  playbookUpdatedAt: number | null;
+  summaryArtifactMd: string | null;
 }
 
 export interface TranscriptSegment {
@@ -32,6 +35,9 @@ interface DbMeeting {
   summary: string | null;
   created_at: number;
   updated_at: number;
+  last_playbook_json?: string | null;
+  playbook_updated_at?: number | null;
+  summary_artifact_md?: string | null;
 }
 
 interface DbSegment {
@@ -56,6 +62,9 @@ function mapDbMeeting(row: DbMeeting): Meeting {
     summary: row.summary,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    lastPlaybookJson: row.last_playbook_json ?? null,
+    playbookUpdatedAt: row.playbook_updated_at ?? null,
+    summaryArtifactMd: row.summary_artifact_md ?? null,
   };
 }
 
@@ -95,6 +104,9 @@ export async function createMeeting(meeting: {
     summary: null,
     createdAt: now,
     updatedAt: now,
+    lastPlaybookJson: null,
+    playbookUpdatedAt: null,
+    summaryArtifactMd: null,
   };
 }
 
@@ -126,6 +138,30 @@ export async function updateMeetingSummary(
   await db.execute(
     "UPDATE meetings SET summary = ?, updated_at = ? WHERE id = ?",
     [summary, Date.now(), id]
+  );
+}
+
+export async function updateMeetingPlaybook(
+  id: string,
+  playbookJson: string
+): Promise<void> {
+  const db = await getDatabase();
+  const now = Date.now();
+  await db.execute(
+    "UPDATE meetings SET last_playbook_json = ?, playbook_updated_at = ?, updated_at = ? WHERE id = ?",
+    [playbookJson, now, now, id]
+  );
+}
+
+export async function updateMeetingSummaryArtifact(
+  id: string,
+  markdown: string
+): Promise<void> {
+  const db = await getDatabase();
+  const now = Date.now();
+  await db.execute(
+    "UPDATE meetings SET summary_artifact_md = ?, updated_at = ? WHERE id = ?",
+    [markdown, now, id]
   );
 }
 

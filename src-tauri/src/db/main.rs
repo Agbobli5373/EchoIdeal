@@ -30,5 +30,11 @@ pub fn migrations() -> Vec<Migration> {
             sql: include_str!("migrations/knowledge-base.sql"),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 5,
+            description: "cluely_copilot_profiles_triggers_audit",
+            sql: include_str!("migrations/cluely-copilot.sql"),
+            kind: MigrationKind::Up,
+        },
     ]
 }

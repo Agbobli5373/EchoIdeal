@@ -1,5 +1,5 @@
 import { getDatabase } from "./config";
-import { ChatConversation } from "@/types";
+import type { ChatConversation, ConversationKnowledgeMode } from "@/types";
 import { safeLocalStorage } from "@/lib";
 
 // Legacy localStorage key for migration purposes
@@ -13,6 +13,7 @@ interface DbConversation {
   title: string;
   created_at: number;
   updated_at: number;
+  knowledge_mode?: string;
 }
 
 /**
@@ -25,6 +26,21 @@ interface DbMessage {
   content: string;
   timestamp: number;
   attached_files: string | null; // JSON string
+  knowledge_sources?: string | null;
+}
+
+function rowKnowledgeMode(raw: string | undefined | null): ConversationKnowledgeMode {
+  const v = raw ?? "inherit";
+  if (
+    v === "inherit" ||
+    v === "off" ||
+    v === "local" ||
+    v === "web" ||
+    v === "local_web"
+  ) {
+    return v;
+  }
+  return "inherit";
 }
 
 /**
@@ -100,12 +116,13 @@ export async function createConversation(
   try {
     // Insert conversation
     await db.execute(
-      "INSERT INTO conversations (id, title, created_at, updated_at) VALUES (?, ?, ?, ?)",
+      "INSERT INTO conversations (id, title, created_at, updated_at, knowledge_mode) VALUES (?, ?, ?, ?, ?)",
       [
         conversation.id,
         conversation.title,
         conversation.createdAt || Date.now(),
         conversation.updatedAt || Date.now(),
+        conversation.knowledgeMode ?? "inherit",
       ]
     );
 
@@ -120,8 +137,15 @@ export async function createConversation(
         ? JSON.stringify(message.attachedFiles)
         : null;
 
+      const knowledgeSourcesJson =
+        message.role === "assistant" &&
+        message.knowledgeSources &&
+        message.knowledgeSources.length > 0
+          ? JSON.stringify(message.knowledgeSources)
+          : null;
+
       await db.execute(
-        "INSERT INTO messages (id, conversation_id, role, content, timestamp, attached_files) VALUES (?, ?, ?, ?, ?, ?)",
+        "INSERT INTO messages (id, conversation_id, role, content, timestamp, attached_files, knowledge_sources) VALUES (?, ?, ?, ?, ?, ?, ?)",
         [
           message.id,
           conversation.id,
@@ -129,6 +153,7 @@ export async function createConversation(
           message.content,
           message.timestamp,
           attachedFilesJson,
+          knowledgeSourcesJson,
         ]
       );
     }
@@ -183,6 +208,7 @@ export async function getAllConversations(): Promise<ChatConversation[]> {
       title: conv.title,
       createdAt: conv.created_at,
       updatedAt: conv.updated_at,
+      knowledgeMode: rowKnowledgeMode(conv.knowledge_mode),
       messages:
         messagesByConversation.get(conv.id)?.map((msg) => ({
           id: msg.id,
@@ -190,6 +216,10 @@ export async function getAllConversations(): Promise<ChatConversation[]> {
           content: msg.content,
           timestamp: msg.timestamp,
           attachedFiles: safeJsonParse(msg.attached_files, undefined),
+          knowledgeSources: safeJsonParse<string[] | undefined>(
+            msg.knowledge_sources ?? null,
+            undefined
+          ),
         })) || [],
     }));
   } catch (error) {
@@ -235,12 +265,17 @@ export async function getConversationById(
       title: conv.title,
       createdAt: conv.created_at,
       updatedAt: conv.updated_at,
+      knowledgeMode: rowKnowledgeMode(conv.knowledge_mode),
       messages: messages.map((msg) => ({
         id: msg.id,
         role: msg.role,
         content: msg.content,
         timestamp: msg.timestamp,
         attachedFiles: safeJsonParse(msg.attached_files, undefined),
+        knowledgeSources: safeJsonParse<string[] | undefined>(
+          msg.knowledge_sources ?? null,
+          undefined
+        ),
       })),
     };
   } catch (error) {
@@ -262,10 +297,24 @@ export async function updateConversation(
   const db = await getDatabase();
 
   try {
+    let knowledgeMode = conversation.knowledgeMode;
+    if (knowledgeMode === undefined) {
+      const kmRows = await db.select<{ knowledge_mode?: string }[]>(
+        "SELECT knowledge_mode FROM conversations WHERE id = ?",
+        [conversation.id]
+      );
+      knowledgeMode = rowKnowledgeMode(kmRows[0]?.knowledge_mode);
+    }
+
     // Update conversation
     const updateResult = await db.execute(
-      "UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?",
-      [conversation.title, conversation.updatedAt, conversation.id]
+      "UPDATE conversations SET title = ?, updated_at = ?, knowledge_mode = ? WHERE id = ?",
+      [
+        conversation.title,
+        conversation.updatedAt,
+        knowledgeMode,
+        conversation.id,
+      ]
     );
 
     if (updateResult.rowsAffected === 0) {
@@ -295,8 +344,15 @@ export async function updateConversation(
           ? JSON.stringify(message.attachedFiles)
           : null;
 
+        const knowledgeSourcesJsonUp =
+          message.role === "assistant" &&
+          message.knowledgeSources &&
+          message.knowledgeSources.length > 0
+            ? JSON.stringify(message.knowledgeSources)
+            : null;
+
         await db.execute(
-          "INSERT INTO messages (id, conversation_id, role, content, timestamp, attached_files) VALUES (?, ?, ?, ?, ?, ?)",
+          "INSERT INTO messages (id, conversation_id, role, content, timestamp, attached_files, knowledge_sources) VALUES (?, ?, ?, ?, ?, ?, ?)",
           [
             message.id,
             conversation.id,
@@ -304,6 +360,7 @@ export async function updateConversation(
             message.content,
             message.timestamp,
             attachedFilesJson,
+            knowledgeSourcesJsonUp,
           ]
         );
       }
@@ -316,7 +373,7 @@ export async function updateConversation(
       for (const msg of existingMessages) {
         await db
           .execute(
-            "INSERT INTO messages (id, conversation_id, role, content, timestamp, attached_files) VALUES (?, ?, ?, ?, ?, ?)",
+            "INSERT INTO messages (id, conversation_id, role, content, timestamp, attached_files, knowledge_sources) VALUES (?, ?, ?, ?, ?, ?, ?)",
             [
               msg.id,
               msg.conversation_id,
@@ -324,6 +381,7 @@ export async function updateConversation(
               msg.content,
               msg.timestamp,
               msg.attached_files,
+              msg.knowledge_sources,
             ]
           )
           .catch(() => {});
@@ -406,6 +464,17 @@ export async function deleteAllConversations(): Promise<void> {
  */
 export function generateConversationTitle(userMessage: string): string {
   return userMessage.trim();
+}
+
+export async function updateConversationKnowledgeMode(
+  conversationId: string,
+  knowledgeMode: ConversationKnowledgeMode
+): Promise<void> {
+  const db = await getDatabase();
+  await db.execute(
+    "UPDATE conversations SET knowledge_mode = ?, updated_at = ? WHERE id = ?",
+    [knowledgeMode, Date.now(), conversationId]
+  );
 }
 
 /**

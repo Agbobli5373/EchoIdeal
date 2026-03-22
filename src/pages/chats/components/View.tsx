@@ -11,8 +11,19 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Label,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from "@/components";
-import { getConversationById, updateConversationKnowledgeMode } from "@/lib";
+import { Switch } from "@/components/ui/switch";
+import {
+  getConversationById,
+  updateConversationKnowledgeMode,
+  updateConversationStrictKb,
+  openKnowledgeSource,
+} from "@/lib";
 import type { ChatConversation, ConversationKnowledgeMode } from "@/types";
 import {
   Download,
@@ -24,6 +35,7 @@ import {
   Check,
   Loader2,
   ZapIcon,
+  MoreHorizontal,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import moment from "moment";
@@ -93,83 +105,116 @@ const View = () => {
       title={messages?.title || ""}
       description={`${messages?.messages.length} messages in this conversation`}
       rightSlot={
-        <div className="flex flex-row flex-wrap items-center gap-2">
+        <div className="flex max-w-full flex-col items-stretch gap-2 sm:max-w-[min(100%,42rem)] sm:items-end">
           {messages && (
-            <Select
-              value={messages.knowledgeMode ?? "inherit"}
-              onValueChange={async (v) => {
-                const mode = v as ConversationKnowledgeMode;
-                if (!conversationId) return;
-                await updateConversationKnowledgeMode(conversationId, mode);
-                setMessages((prev) =>
-                  prev ? { ...prev, knowledgeMode: mode } : null
-                );
-              }}
-            >
-              <SelectTrigger
-                className="h-8 w-[200px] text-xs"
-                title="Retrieval context for this chat"
+            <div className="flex w-full flex-wrap items-center justify-end gap-2">
+              <Select
+                value={messages.knowledgeMode ?? "inherit"}
+                onValueChange={async (v) => {
+                  const mode = v as ConversationKnowledgeMode;
+                  if (!conversationId) return;
+                  await updateConversationKnowledgeMode(conversationId, mode);
+                  setMessages((prev) =>
+                    prev ? { ...prev, knowledgeMode: mode } : null
+                  );
+                }}
               >
-                <SelectValue placeholder="Context" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="inherit">Use app default</SelectItem>
-                <SelectItem value="off">Off</SelectItem>
-                <SelectItem value="local">Local knowledge only</SelectItem>
-                <SelectItem value="web">Web search only</SelectItem>
-                <SelectItem value="local_web">Local + web</SelectItem>
-              </SelectContent>
-            </Select>
+                <SelectTrigger
+                  className="h-8 w-full min-w-[10rem] max-w-[200px] text-xs sm:w-[200px]"
+                  title="Retrieval context for this chat"
+                >
+                  <SelectValue placeholder="Context" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="inherit">Use app default</SelectItem>
+                  <SelectItem value="off">Off</SelectItem>
+                  <SelectItem value="local">Local knowledge only</SelectItem>
+                  <SelectItem value="web">Web search only</SelectItem>
+                  <SelectItem value="local_web">Local + web</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="flex h-8 shrink-0 items-center gap-2 rounded-md border border-border/60 bg-muted/20 px-2.5">
+                <Switch
+                  id="strict-kb"
+                  className="scale-90"
+                  checked={!!messages.strictKb}
+                  onCheckedChange={async (on) => {
+                    if (!conversationId) return;
+                    await updateConversationStrictKb(conversationId, on);
+                    setMessages((prev) =>
+                      prev ? { ...prev, strictKb: on } : null
+                    );
+                  }}
+                />
+                <Label
+                  htmlFor="strict-kb"
+                  className="cursor-pointer text-xs text-muted-foreground whitespace-nowrap"
+                >
+                  Strict KB
+                </Label>
+              </div>
+            </div>
           )}
-          <Button
-            variant="outline"
-            title="Open this conversation in overlay"
-            className="text-[10px] lg:text-sm h-6 lg:h-8"
-            onClick={() =>
-              conversationId && handleAttachToOverlay(conversationId)
-            }
-            disabled={isAttached}
-          >
-            {isAttached ? (
-              <>
-                <Check className="size-3 lg:size-4 text-green-600" />
-                Attached
-              </>
-            ) : (
-              <>
-                Open in Overlay{" "}
-                <MessageCircleReplyIcon className="size-3 lg:size-4" />
-              </>
-            )}
-          </Button>
-          <Button
-            variant={"outline"}
-            title="Download conversation as markdown"
-            className="text-[10px] lg:text-sm h-6 lg:h-8"
-            onClick={(e) => handleDownload(messages, e)}
-            disabled={isDownloaded}
-          >
-            {isDownloaded ? (
-              <>
-                <Check className="size-3 lg:size-4 text-green-600" />
-                Downloaded
-              </>
-            ) : (
-              <>
-                Download <Download className="size-3 lg:size-4" />
-              </>
-            )}
-          </Button>
-          <Button
-            variant="destructive"
-            title="Delete conversation"
-            onClick={() =>
-              conversationId && handleDeleteConfirm(conversationId)
-            }
-            className="text-[10px] lg:text-sm h-6 lg:h-8"
-          >
-            Delete <Trash2 className="size-3 lg:size-4" />
-          </Button>
+          <div className="flex flex-wrap items-center justify-end gap-1.5">
+            <Button
+              variant="outline"
+              size="sm"
+              title="Open this conversation in overlay"
+              className="h-8 gap-1.5 text-xs font-medium"
+              onClick={() =>
+                conversationId && handleAttachToOverlay(conversationId)
+              }
+              disabled={isAttached}
+            >
+              {isAttached ? (
+                <>
+                  <Check className="size-3.5 text-green-600" />
+                  Attached
+                </>
+              ) : (
+                <>
+                  <MessageCircleReplyIcon className="size-3.5" />
+                  Overlay
+                </>
+              )}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1.5 px-2.5 text-xs font-medium"
+                  title="More actions"
+                >
+                  <MoreHorizontal className="size-3.5" />
+                  <span className="hidden sm:inline">More</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="min-w-[11rem]">
+                <DropdownMenuItem
+                  disabled={!messages || isDownloaded}
+                  onClick={(e) => messages && handleDownload(messages, e)}
+                >
+                  {isDownloaded ? (
+                    <Check className="size-4 text-green-600" />
+                  ) : (
+                    <Download className="size-4" />
+                  )}
+                  {isDownloaded ? "Downloaded" : "Export markdown"}
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  variant="destructive"
+                  disabled={!conversationId}
+                  onClick={() =>
+                    conversationId && handleDeleteConfirm(conversationId)
+                  }
+                >
+                  <Trash2 className="size-4" />
+                  Delete conversation
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       }
     >
@@ -237,13 +282,18 @@ const View = () => {
                             <summary className="cursor-pointer select-none">
                               Sources
                             </summary>
-                            <ul className="mt-1 list-disc pl-4 space-y-0.5">
+                            <div className="mt-1 flex flex-wrap gap-1">
                               {message.knowledgeSources.map((s) => (
-                                <li key={s} className="break-all">
+                                <button
+                                  key={s}
+                                  type="button"
+                                  className="rounded-md border border-border/60 bg-muted/40 px-2 py-0.5 text-left text-[10px] hover:bg-accent"
+                                  onClick={() => openKnowledgeSource(s)}
+                                >
                                   {s}
-                                </li>
+                                </button>
                               ))}
-                            </ul>
+                            </div>
                           </details>
                         )}
                     </Card>
@@ -260,8 +310,8 @@ const View = () => {
                   {/* Avatar - Right side for user */}
                   {isUser && (
                     <div className="flex-shrink-0">
-                      <div className="size-7 lg:size-8 rounded-full bg-primary flex items-center justify-center">
-                        <UserIcon className="size-3 lg:size-4 text-primary-foreground" />
+                      <div className="flex size-7 items-center justify-center rounded-full bg-muted ring-1 ring-border/60 lg:size-8">
+                        <UserIcon className="size-3 text-muted-foreground lg:size-4" />
                       </div>
                     </div>
                   )}
@@ -298,7 +348,7 @@ const View = () => {
               </div>
             </div>
           )}
-          <div className="flex-1 relative">
+          <div className="relative min-w-0 flex-1">
             {completion.isRecording ? (
               <AudioRecorder
                 onTranscriptionComplete={(text) => {
@@ -308,39 +358,11 @@ const View = () => {
                 onCancel={() => completion.setIsRecording(false)}
               />
             ) : (
-              <>
-                <div className="absolute bottom-2 left-2 flex items-center gap-1 z-10">
-                  <ChatFiles
-                    attachedFiles={completion.attachedFiles}
-                    handleFileSelect={completion.handleFileSelect}
-                    removeFile={completion.removeFile}
-                    onRemoveAllFiles={completion.onRemoveAllFiles}
-                    isLoading={completion.isLoading}
-                    isFilesPopoverOpen={completion.isFilesPopoverOpen}
-                    setIsFilesPopoverOpen={completion.setIsFilesPopoverOpen}
-                    disabled={!hasActiveLicense || !supportsImages}
-                  />
-                  <ChatAudio
-                    micOpen={completion.micOpen}
-                    setMicOpen={completion.setMicOpen}
-                    isRecording={completion.isRecording}
-                    setIsRecording={completion.setIsRecording}
-                    disabled={!hasActiveLicense}
-                  />
-                  <ChatScreenshot
-                    screenshotConfiguration={completion.screenshotConfiguration}
-                    attachedFiles={completion.attachedFiles}
-                    isLoading={completion.isLoading}
-                    captureScreenshot={completion.captureScreenshot}
-                    isScreenshotLoading={completion.isScreenshotLoading}
-                    disabled={!hasActiveLicense || !supportsImages}
-                  />
-                </div>
-
+              <div className="overflow-hidden rounded-xl border border-border/60 bg-card/80 shadow-sm">
                 <Textarea
                   ref={completion.inputRef}
                   placeholder="Type a message..."
-                  className="pr-12 pl-2 resize-none pb-12 pt-3"
+                  className="min-h-[4.5rem] resize-none rounded-none border-0 bg-transparent px-3 pt-3 pb-2 text-sm shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
                   rows={2}
                   value={completion.input}
                   onChange={(e) => completion.setInput(e.target.value)}
@@ -348,24 +370,64 @@ const View = () => {
                   onPaste={completion.handlePaste}
                   disabled={completion.isLoading || !hasActiveLicense}
                 />
-                <Button
-                  size="icon"
-                  className="size-7 lg:size-9 rounded-lg lg:rounded-xl absolute right-2 bottom-2"
-                  title="Send message"
-                  onClick={() => completion.submit()}
-                  disabled={
-                    completion.isLoading ||
-                    !completion.input.trim() ||
-                    !hasActiveLicense
-                  }
-                >
-                  {completion.isLoading ? (
-                    <Loader2 className="size-3 lg:size-4 animate-spin" />
-                  ) : (
-                    <SendIcon className="size-3 lg:size-4" />
-                  )}
-                </Button>
-              </>
+                <div className="flex items-center justify-between gap-2 border-t border-border/50 bg-muted/25 px-1.5 py-1">
+                  <div
+                    className="flex items-center gap-0.5"
+                    role="toolbar"
+                    aria-label="Message attachments"
+                  >
+                    <ChatFiles
+                      attachedFiles={completion.attachedFiles}
+                      handleFileSelect={completion.handleFileSelect}
+                      removeFile={completion.removeFile}
+                      onRemoveAllFiles={completion.onRemoveAllFiles}
+                      isLoading={completion.isLoading}
+                      isFilesPopoverOpen={completion.isFilesPopoverOpen}
+                      setIsFilesPopoverOpen={completion.setIsFilesPopoverOpen}
+                      disabled={!hasActiveLicense || !supportsImages}
+                      triggerVariant="ghost"
+                      triggerClassName="size-8 h-8 w-8 shrink-0 rounded-md text-muted-foreground hover:text-foreground"
+                    />
+                    <ChatAudio
+                      micOpen={completion.micOpen}
+                      setMicOpen={completion.setMicOpen}
+                      isRecording={completion.isRecording}
+                      setIsRecording={completion.setIsRecording}
+                      disabled={!hasActiveLicense}
+                      triggerVariant="ghost"
+                      triggerClassName="size-8 h-8 w-8 shrink-0 rounded-md text-muted-foreground hover:text-foreground"
+                    />
+                    <ChatScreenshot
+                      screenshotConfiguration={completion.screenshotConfiguration}
+                      attachedFiles={completion.attachedFiles}
+                      isLoading={completion.isLoading}
+                      captureScreenshot={completion.captureScreenshot}
+                      isScreenshotLoading={completion.isScreenshotLoading}
+                      disabled={!hasActiveLicense || !supportsImages}
+                      triggerVariant="ghost"
+                      triggerClassName="size-8 h-8 w-8 shrink-0 rounded-md text-muted-foreground hover:text-foreground"
+                    />
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="default"
+                    className="size-8 shrink-0 rounded-md"
+                    title="Send message"
+                    onClick={() => completion.submit()}
+                    disabled={
+                      completion.isLoading ||
+                      !completion.input.trim() ||
+                      !hasActiveLicense
+                    }
+                  >
+                    {completion.isLoading ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <SendIcon className="size-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
             )}
           </div>
         </div>

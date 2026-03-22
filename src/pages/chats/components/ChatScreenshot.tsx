@@ -2,6 +2,7 @@ import { Button } from "@/components";
 import { LaptopMinimalIcon, Loader2, MousePointer2Icon } from "lucide-react";
 import { MAX_FILES } from "@/config";
 import { useApp } from "@/contexts";
+import { cn } from "@/lib/utils";
 
 interface ChatScreenshotProps {
   screenshotConfiguration: any;
@@ -10,6 +11,8 @@ interface ChatScreenshotProps {
   captureScreenshot: () => Promise<void>;
   isScreenshotLoading: boolean;
   disabled: boolean;
+  triggerClassName?: string;
+  triggerVariant?: "outline" | "ghost";
 }
 
 export const ChatScreenshot = ({
@@ -19,6 +22,8 @@ export const ChatScreenshot = ({
   captureScreenshot,
   isScreenshotLoading,
   disabled,
+  triggerClassName,
+  triggerVariant = "outline",
 }: ChatScreenshotProps) => {
   const { supportsImages } = useApp();
   const captureMode = screenshotConfiguration.enabled
@@ -29,8 +34,11 @@ export const ChatScreenshot = ({
   return (
     <Button
       size="icon"
-      variant="outline"
-      className="size-7 lg:size-9 rounded-lg lg:rounded-xl"
+      variant={triggerVariant}
+      className={cn(
+        "size-7 lg:size-9 rounded-lg lg:rounded-xl",
+        triggerClassName
+      )}
       title={
         !supportsImages
           ? "Screenshot not supported by current AI provider"

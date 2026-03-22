@@ -9,6 +9,7 @@ import {
 import { PaperclipIcon, XIcon, PlusIcon, TrashIcon } from "lucide-react";
 import { MAX_FILES } from "@/config";
 import { useApp } from "@/contexts";
+import { cn } from "@/lib/utils";
 
 interface ChatFilesProps {
   attachedFiles: any[];
@@ -19,6 +20,8 @@ interface ChatFilesProps {
   isFilesPopoverOpen: boolean;
   setIsFilesPopoverOpen: (open: boolean) => void;
   disabled: boolean;
+  triggerClassName?: string;
+  triggerVariant?: "outline" | "ghost";
 }
 
 export const ChatFiles = ({
@@ -30,6 +33,8 @@ export const ChatFiles = ({
   isFilesPopoverOpen,
   setIsFilesPopoverOpen,
   disabled,
+  triggerClassName,
+  triggerVariant = "outline",
 }: ChatFilesProps) => {
   const { supportsImages } = useApp();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -46,7 +51,7 @@ export const ChatFiles = ({
         <PopoverTrigger asChild>
           <Button
             size="icon"
-            variant="outline"
+            variant={triggerVariant}
             onClick={() => {
               if (attachedFiles.length === 0) {
                 // If no files, directly open file picker
@@ -57,7 +62,10 @@ export const ChatFiles = ({
               }
             }}
             disabled={isLoading || disabled}
-            className="size-7 lg:size-9 rounded-lg lg:rounded-xl"
+            className={cn(
+              "size-7 lg:size-9 rounded-lg lg:rounded-xl",
+              triggerClassName
+            )}
             title={
               supportsImages
                 ? "Attach images"
@@ -70,7 +78,7 @@ export const ChatFiles = ({
 
         {/* File count badge */}
         {attachedFiles.length > 0 && (
-          <div className="absolute -top-2 -right-2 bg-primary-foreground text-primary rounded-full h-5 w-5 flex border border-primary items-center justify-center text-xs font-medium">
+          <div className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full border border-border bg-muted px-1 text-[10px] font-medium text-foreground">
             {attachedFiles.length}
           </div>
         )}

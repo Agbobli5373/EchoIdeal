@@ -1,6 +1,7 @@
 import { InfoIcon, MicIcon } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger, Button } from "@/components";
 import { useApp } from "@/contexts";
+import { cn } from "@/lib/utils";
 
 interface ChatAudioProps {
   micOpen: boolean;
@@ -8,6 +9,9 @@ interface ChatAudioProps {
   isRecording: boolean;
   setIsRecording: (recording: boolean) => void;
   disabled: boolean;
+  /** Merged onto the trigger button (e.g. compact toolbar sizing). */
+  triggerClassName?: string;
+  triggerVariant?: "outline" | "ghost";
 }
 
 export const ChatAudio = ({
@@ -16,6 +20,8 @@ export const ChatAudio = ({
   isRecording,
   setIsRecording,
   disabled,
+  triggerClassName,
+  triggerVariant = "outline",
 }: ChatAudioProps) => {
   const { selectedSttProvider, echoidealApiEnabled } = useApp();
   const isProviderConfigured = echoidealApiEnabled || selectedSttProvider.provider;
@@ -34,9 +40,12 @@ export const ChatAudio = ({
       <PopoverTrigger asChild>
         <Button
           size="icon"
-          variant="outline"
+          variant={triggerVariant}
           onClick={handleMicClick}
-          className="size-7 lg:size-9 rounded-lg lg:rounded-xl"
+          className={cn(
+            "size-7 lg:size-9 rounded-lg lg:rounded-xl",
+            triggerClassName
+          )}
           title={isRecording ? "Recording..." : "Voice input"}
           disabled={disabled}
         >

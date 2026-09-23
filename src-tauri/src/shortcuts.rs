@@ -595,19 +595,16 @@ pub fn set_always_on_top<R: Runtime>(app: AppHandle<R>, enabled: bool) -> Result
 fn handle_toggle_dashboard<R: Runtime>(app: &AppHandle<R>) {
     if let Some(dashboard_window) = app.get_webview_window("dashboard") {
         match dashboard_window.is_visible() {
-            Ok(true) => {
-                // Window is visible, hide it
+            Ok(true) if !dashboard_window.is_minimized().unwrap_or(false) => {
+                // Window is on screen, hide it
                 if let Err(e) = dashboard_window.hide() {
                     eprintln!("Failed to hide dashboard window: {}", e);
                 }
             }
-            Ok(false) => {
-                // Window is hidden, show and focus it
-                if let Err(e) = dashboard_window.show() {
+            Ok(_) => {
+                // Window is hidden or minimised, show and focus it
+                if let Err(e) = show_dashboard_window(app) {
                     eprintln!("Failed to show dashboard window: {}", e);
-                }
-                if let Err(e) = dashboard_window.set_focus() {
-                    eprintln!("Failed to focus dashboard window: {}", e);
                 }
             }
             Err(e) => {

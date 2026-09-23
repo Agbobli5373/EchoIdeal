@@ -17,6 +17,8 @@ import {
 } from "@/lib";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { activeMeetingStore, withMeetingInstruction } from "@/lib/meeting";
+import { addMeetingEntry } from "@/lib/database/meetings.action";
 
 // Types for completion
 interface AttachedFile {
@@ -231,7 +233,10 @@ export const useCompletion = () => {
           for await (const chunk of fetchAIResponse({
             provider: useEchoIdealAPI ? undefined : provider,
             selectedProvider: selectedAIProvider,
-            systemPrompt: systemPrompt || undefined,
+            systemPrompt: withMeetingInstruction(
+              systemPrompt || undefined,
+              activeMeetingStore.get()
+            ),
             history: messageHistory,
             userMessage: effectiveInput,
             imagesBase64,
@@ -381,12 +386,28 @@ export const useCompletion = () => {
     async (
       userMessage: string,
       assistantResponse: string,
-      _attachedFiles: AttachedFile[]
+      attachedFiles: AttachedFile[]
     ) => {
       // Validate inputs
       if (!userMessage || !assistantResponse) {
         console.error("Cannot save conversation: missing message content");
         return;
+      }
+
+      const meeting = activeMeetingStore.get();
+      if (meeting) {
+        const images = attachedFiles
+          .filter((file) => file.type.startsWith("image/"))
+          .map((file) => file.base64);
+        await addMeetingEntry({
+          meetingId: meeting.id,
+          kind: images.length > 0 ? "screen_capture" : "private_request",
+          prompt: userMessage,
+          content: assistantResponse,
+          images,
+          segmentId: null,
+          timeMs: Date.now() - meeting.startedAt,
+        }).catch((err) => console.error("Failed to save meeting entry:", err));
       }
 
       const conversationId =
@@ -634,7 +655,10 @@ export const useCompletion = () => {
             for await (const chunk of fetchAIResponse({
               provider: useEchoIdealAPI ? undefined : provider,
               selectedProvider: selectedAIProvider,
-              systemPrompt: systemPrompt || undefined,
+              systemPrompt: withMeetingInstruction(
+                systemPrompt || undefined,
+                activeMeetingStore.get()
+              ),
               history: messageHistory,
               userMessage: prompt,
               imagesBase64: [base64],

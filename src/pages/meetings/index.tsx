@@ -8,6 +8,7 @@ import {
   deleteMeeting,
 } from "@/lib/database/meetings.action";
 import { useMeeting } from "@/hooks/useMeeting";
+import { MEETING_TYPE_LABELS } from "@/lib/meeting";
 import {
   PlusIcon,
   TrashIcon,
@@ -173,6 +174,7 @@ const Meetings = () => {
                           {meeting.title}
                         </p>
                         <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-0.5">
+                          <span>{MEETING_TYPE_LABELS[meeting.type]}</span>
                           <span>{formatTime(meeting.startedAt)}</span>
                           <span className="flex items-center gap-0.5">
                             <ClockIcon className="size-2.5" />

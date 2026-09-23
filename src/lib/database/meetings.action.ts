@@ -1,14 +1,35 @@
 import { getDatabase } from "./config";
 
+export type MeetingType = "interview" | "assessment" | "general";
+
 export interface Meeting {
   id: string;
   title: string;
+  type: MeetingType;
+  rememberAnswers: boolean;
   startedAt: number;
   endedAt: number | null;
   status: "active" | "ended" | "archived";
   summary: string | null;
   createdAt: number;
   updatedAt: number;
+}
+
+export type MeetingEntryKind =
+  | "suggested_answer"
+  | "private_request"
+  | "screen_capture";
+
+export interface MeetingEntry {
+  id: string;
+  meetingId: string;
+  kind: MeetingEntryKind;
+  prompt: string;
+  content: string;
+  images: string[];
+  segmentId: string | null;
+  timeMs: number;
+  createdAt: number;
 }
 
 export interface TranscriptSegment {
@@ -26,6 +47,8 @@ export interface TranscriptSegment {
 interface DbMeeting {
   id: string;
   title: string;
+  type: string;
+  remember_answers: number;
   started_at: number;
   ended_at: number | null;
   status: string;
@@ -46,10 +69,24 @@ interface DbSegment {
   created_at: number;
 }
 
+interface DbMeetingEntry {
+  id: string;
+  meeting_id: string;
+  kind: string;
+  prompt: string;
+  content: string;
+  images: string | null;
+  segment_id: string | null;
+  time_ms: number;
+  created_at: number;
+}
+
 function mapDbMeeting(row: DbMeeting): Meeting {
   return {
     id: row.id,
     title: row.title,
+    type: row.type as MeetingType,
+    rememberAnswers: row.remember_answers === 1,
     startedAt: row.started_at,
     endedAt: row.ended_at,
     status: row.status as Meeting["status"],
@@ -76,19 +113,25 @@ function mapDbSegment(row: DbSegment): TranscriptSegment {
 export async function createMeeting(meeting: {
   id: string;
   title?: string;
+  type?: MeetingType;
+  rememberAnswers?: boolean;
 }): Promise<Meeting> {
   const db = await getDatabase();
   const now = Date.now();
   const title = meeting.title || "Untitled Meeting";
+  const type = meeting.type ?? "general";
+  const rememberAnswers = meeting.rememberAnswers ?? true;
 
   await db.execute(
-    "INSERT INTO meetings (id, title, started_at, status, created_at, updated_at) VALUES (?, ?, ?, 'active', ?, ?)",
-    [meeting.id, title, now, now, now]
+    "INSERT INTO meetings (id, title, type, remember_answers, started_at, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, 'active', ?, ?)",
+    [meeting.id, title, type, rememberAnswers ? 1 : 0, now, now, now]
   );
 
   return {
     id: meeting.id,
     title,
+    type,
+    rememberAnswers,
     startedAt: now,
     endedAt: null,
     status: "active",
@@ -208,6 +251,55 @@ export async function updateSegmentContent(
 
 export async function deleteAllMeetings(): Promise<void> {
   const db = await getDatabase();
+  await db.execute("DELETE FROM meeting_entries");
   await db.execute("DELETE FROM transcript_segments");
   await db.execute("DELETE FROM meetings");
+}
+
+export async function addMeetingEntry(
+  entry: Omit<MeetingEntry, "id" | "createdAt">
+): Promise<MeetingEntry> {
+  const db = await getDatabase();
+  const now = Date.now();
+  const id = `${now}-${Math.random().toString(36).slice(2, 11)}`;
+  await db.execute(
+    "INSERT INTO meeting_entries (id, meeting_id, kind, prompt, content, images, segment_id, time_ms, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    [
+      id,
+      entry.meetingId,
+      entry.kind,
+      entry.prompt,
+      entry.content,
+      entry.images.length > 0 ? JSON.stringify(entry.images) : null,
+      entry.segmentId,
+      entry.timeMs,
+      now,
+    ]
+  );
+  await db.execute("UPDATE meetings SET updated_at = ? WHERE id = ?", [
+    now,
+    entry.meetingId,
+  ]);
+  return { ...entry, id, createdAt: now };
+}
+
+export async function getMeetingEntries(
+  meetingId: string
+): Promise<MeetingEntry[]> {
+  const db = await getDatabase();
+  const rows = await db.select<DbMeetingEntry[]>(
+    "SELECT * FROM meeting_entries WHERE meeting_id = ? ORDER BY time_ms ASC, created_at ASC",
+    [meetingId]
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    meetingId: row.meeting_id,
+    kind: row.kind as MeetingEntryKind,
+    prompt: row.prompt,
+    content: row.content,
+    images: row.images ? JSON.parse(row.images) : [],
+    segmentId: row.segment_id,
+    timeMs: row.time_ms,
+    createdAt: row.created_at,
+  }));
 }

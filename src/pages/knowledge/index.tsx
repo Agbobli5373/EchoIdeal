@@ -123,8 +123,8 @@ const Knowledge = () => {
   return (
     <PageLayout
       title="Knowledge"
-      description="Documents the AI uses as facts about you, so answers aren't generic"
-      rightSlot={
+      subtitle="Documents the AI treats as facts about you."
+      actions={
         <div className="flex items-center gap-2">
           <Button
             variant="outline"

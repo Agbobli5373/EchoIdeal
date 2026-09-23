@@ -14,11 +14,38 @@ import {
   generateMessageId,
   generateRequestId,
   getResponseSettings,
+  isAIErrorText,
 } from "@/lib";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { activeMeetingStore, withMeetingInstruction } from "@/lib/meeting";
+import {
+  MemoryAI,
+  activeMeetingStore,
+  keepMemoryInBudget,
+  prepareMeetingRequest,
+  splitScreenText,
+  useActiveMeeting,
+} from "@/lib/meeting";
 import { addMeetingEntry } from "@/lib/database/meetings.action";
+import { Message } from "@/types/completion";
+
+// During a Meeting, typed requests and Screen Captures carry Meeting Memory instead of the
+// whole typed thread; only its latest exchange goes along, for "shorter" / "explain that".
+async function meetingAwareRequest(
+  systemPrompt: string | undefined,
+  images: string[],
+  history: Message[],
+  ai: MemoryAI
+) {
+  const meeting = activeMeetingStore.get();
+  if (!meeting) {
+    return { systemPrompt, meetingContext: undefined, imagesBase64: images, history };
+  }
+  return {
+    ...(await prepareMeetingRequest({ meeting, systemPrompt, images, ai })),
+    history: history.slice(-2),
+  };
+}
 
 // Types for completion
 interface AttachedFile {
@@ -228,18 +255,27 @@ export const useCompletion = () => {
           response: "",
         }));
 
+        const ai: MemoryAI = {
+          provider: useEchoIdealAPI ? undefined : provider,
+          selectedProvider: selectedAIProvider,
+        };
+
         try {
+          const request = await meetingAwareRequest(
+            systemPrompt || undefined,
+            imagesBase64,
+            messageHistory,
+            ai
+          );
           // Use the fetchAIResponse function with signal
           for await (const chunk of fetchAIResponse({
-            provider: useEchoIdealAPI ? undefined : provider,
+            provider: ai.provider,
             selectedProvider: selectedAIProvider,
-            systemPrompt: withMeetingInstruction(
-              systemPrompt || undefined,
-              activeMeetingStore.get()
-            ),
-            history: messageHistory,
+            systemPrompt: request.systemPrompt,
+            meetingContext: request.meetingContext,
+            history: request.history,
             userMessage: effectiveInput,
-            imagesBase64,
+            imagesBase64: request.imagesBase64,
             signal,
           })) {
             // Only update if this is still the current request
@@ -287,7 +323,8 @@ export const useCompletion = () => {
           await saveCurrentConversation(
             input,
             fullResponse,
-            state.attachedFiles
+            state.attachedFiles,
+            ai
           );
           // Clear input and attached files after saving
           setState((prev) => ({
@@ -382,32 +419,48 @@ export const useCompletion = () => {
     }));
   }, []);
 
+  // The typed thread belongs to one Meeting: starting, resuming or ending one starts afresh,
+  // so nothing typed in one Meeting is sent along in another.
+  const activeMeetingId = useActiveMeeting()?.id ?? null;
+  const meetingIdRef = useRef(activeMeetingId);
+  useEffect(() => {
+    if (meetingIdRef.current === activeMeetingId) return;
+    meetingIdRef.current = activeMeetingId;
+    startNewConversation();
+  }, [activeMeetingId, startNewConversation]);
+
   const saveCurrentConversation = useCallback(
     async (
       userMessage: string,
-      assistantResponse: string,
-      attachedFiles: AttachedFile[]
+      rawResponse: string,
+      attachedFiles: AttachedFile[],
+      ai?: MemoryAI
     ) => {
       // Validate inputs
-      if (!userMessage || !assistantResponse) {
+      if (!userMessage || !rawResponse) {
         console.error("Cannot save conversation: missing message content");
         return;
       }
+      const { answer: assistantResponse, screenText } =
+        splitScreenText(rawResponse);
 
       const meeting = activeMeetingStore.get();
-      if (meeting) {
+      if (meeting && !isAIErrorText(rawResponse)) {
         const images = attachedFiles
           .filter((file) => file.type.startsWith("image/"))
           .map((file) => file.base64);
+        const isScreenCapture = images.length > 0;
         await addMeetingEntry({
           meetingId: meeting.id,
-          kind: images.length > 0 ? "screen_capture" : "private_request",
+          kind: isScreenCapture ? "screen_capture" : "private_request",
           prompt: userMessage,
           content: assistantResponse,
           images,
+          screenText,
           segmentId: null,
           timeMs: Date.now() - meeting.startedAt,
         }).catch((err) => console.error("Failed to save meeting entry:", err));
+        if (isScreenCapture && ai) void keepMemoryInBudget(meeting.id, ai);
       }
 
       const conversationId =
@@ -651,17 +704,26 @@ export const useCompletion = () => {
               response: "",
             }));
 
-            // Use the fetchAIResponse function with image and signal
-            for await (const chunk of fetchAIResponse({
+            const ai: MemoryAI = {
               provider: useEchoIdealAPI ? undefined : provider,
               selectedProvider: selectedAIProvider,
-              systemPrompt: withMeetingInstruction(
-                systemPrompt || undefined,
-                activeMeetingStore.get()
-              ),
-              history: messageHistory,
+            };
+            const request = await meetingAwareRequest(
+              systemPrompt || undefined,
+              [base64],
+              messageHistory,
+              ai
+            );
+
+            // Use the fetchAIResponse function with image and signal
+            for await (const chunk of fetchAIResponse({
+              provider: ai.provider,
+              selectedProvider: selectedAIProvider,
+              systemPrompt: request.systemPrompt,
+              meetingContext: request.meetingContext,
+              history: request.history,
               userMessage: prompt,
-              imagesBase64: [base64],
+              imagesBase64: request.imagesBase64,
               signal,
             })) {
               // Only update if this is still the current request
@@ -690,9 +752,12 @@ export const useCompletion = () => {
 
             // Save the conversation after successful completion
             if (fullResponse) {
-              await saveCurrentConversation(prompt, fullResponse, [
-                attachedFile,
-              ]);
+              await saveCurrentConversation(
+                prompt,
+                fullResponse,
+                [attachedFile],
+                ai
+              );
               // Clear input after saving
               setState((prev) => ({
                 ...prev,

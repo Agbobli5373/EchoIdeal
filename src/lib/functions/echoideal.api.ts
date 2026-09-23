@@ -3,8 +3,10 @@ import { safeLocalStorage } from "../storage";
 import { STORAGE_KEYS } from "@/config";
 import { PREMIUM_FEATURES_ENABLED } from "@/config/feature-flags";
 
-export async function clearLicense(): Promise<void> {
-  await invoke("clear_license");
+// The hosted-API switch lived on the removed licence page. Clearing the stored
+// flag on every start means nobody stays on the hosted API with no way off.
+export function retireEchoIdealApiFlag(): void {
+  safeLocalStorage.removeItem(STORAGE_KEYS.ECHOIDEAL_API_ENABLED);
 }
 
 export async function shouldUseEchoIdealAPI(): Promise<boolean> {

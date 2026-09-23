@@ -10,6 +10,7 @@ type Props = {
   conversation: ChatConversation;
   conversationMode: boolean;
   setConversationMode: (mode: boolean) => void;
+  otherSpeakerLabel: string;
 };
 
 export const ResultsSection = ({
@@ -19,6 +20,7 @@ export const ResultsSection = ({
   conversation,
   conversationMode,
   setConversationMode,
+  otherSpeakerLabel,
 }: Props) => {
   const hasResponse = lastAIResponse || isAIProcessing;
   const hasHistory = conversation.messages.length > 2;
@@ -59,7 +61,8 @@ export const ResultsSection = ({
           {/* System Input - Just text with bold label */}
           {lastTranscription && (
             <p className="text-[11px] text-muted-foreground">
-              <span className="font-semibold">System:</span> {lastTranscription}
+              <span className="font-semibold">{otherSpeakerLabel}:</span>{" "}
+              {lastTranscription}
             </p>
           )}
 
@@ -122,7 +125,7 @@ export const ResultsSection = ({
               <div className="flex items-center gap-1.5 mb-1">
                 <HeadphonesIcon className="h-3 w-3 text-primary" />
                 <span className="text-[9px] font-medium text-primary uppercase tracking-wide">
-                  System
+                  {otherSpeakerLabel}
                 </span>
               </div>
               <p className="text-sm">{lastTranscription}</p>
@@ -150,7 +153,7 @@ export const ResultsSection = ({
                       )}
                     >
                       <span className="text-[8px] font-medium text-muted-foreground uppercase">
-                        {message.role === "user" ? "System" : "AI"}
+                        {message.role === "user" ? otherSpeakerLabel : "AI"}
                       </span>
                       <div className="text-muted-foreground leading-relaxed mt-0.5">
                         <Markdown>{message.content}</Markdown>

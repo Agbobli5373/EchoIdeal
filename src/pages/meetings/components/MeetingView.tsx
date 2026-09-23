@@ -10,13 +10,17 @@ import {
   getSegmentsByMeetingId,
   endMeeting,
   updateMeetingTitle,
-  updateMeetingSummary,
   addTranscriptSegment,
 } from "@/lib/database/meetings.action";
 import { TranscriptSegmentItem } from "./TranscriptSegmentItem";
 import { MicTranscriber } from "./MicTranscriber";
 import { useLiveTranscription } from "@/hooks/useLiveTranscription";
 import { fetchAIResponse } from "@/lib/functions/ai-response.function";
+import {
+  buildTranscriptContext,
+  generateMeetingSummary,
+  speakerLabel,
+} from "@/lib/meeting";
 import { useApp } from "@/contexts";
 import {
   ArrowLeftIcon,
@@ -71,14 +75,6 @@ function insertInSpokenOrder(
   segment: TranscriptSegment
 ): TranscriptSegment[] {
   return [...segments, segment].sort((a, b) => a.startTimeMs - b.startTimeMs);
-}
-
-function buildTranscriptContext(segments: TranscriptSegment[], maxSegments = 30): string {
-  const recent = segments.slice(-maxSegments);
-  if (recent.length === 0) return "(No transcript yet)";
-  return recent
-    .map((s) => `[${s.speaker}]: ${s.content}`)
-    .join("\n");
 }
 
 const MEETING_SYSTEM_PROMPT = `You are a real-time meeting assistant. You have access to the live transcript of an ongoing meeting. Your role is to:
@@ -150,6 +146,10 @@ const MeetingView = () => {
       if (m) {
         meetingStartRef.current = m.startedAt;
         setEditTitle(m.title);
+        setSpeakerNames({
+          You: speakerLabel("You", m.type),
+          Them: speakerLabel("Them", m.type),
+        });
         const segs = await getSegmentsByMeetingId(meetingId);
         setSegments(segs);
       }
@@ -217,29 +217,18 @@ const MeetingView = () => {
     if (!meetingId) return;
     await stopTranscription();
     await endMeeting(meetingId);
-    const finalSegments = await getSegmentsByMeetingId(meetingId);
-    setSegments(finalSegments);
-    if (finalSegments.length > 0) {
-      const provider = allAiProviders.find((p) => p.id === selectedAIProvider.provider);
-          if (provider) {
-        try {
-          const transcript = buildTranscriptContext(finalSegments, 100);
-          let summary = "";
-          const gen = fetchAIResponse({
-            provider, selectedProvider: selectedAIProvider,
-            systemPrompt:
-              "You are a meeting summarizer. Return Markdown with the following sections as headings:\n\n## Overview\n## Key Topics\n## Decisions Made\n## Action Items\n## Follow-up Questions\n\nUse bullet lists where appropriate. Be concise and specific.",
-            userMessage: `Summarize this meeting transcript:\n\n${transcript}`,
-            knowledgeMode: "background",
-          });
-          for await (const chunk of gen) { summary += chunk; }
-          if (summary) await updateMeetingSummary(meetingId, summary);
-        } catch (err) { console.error("Failed to generate summary:", err); }
-      }
+    setSegments(await getSegmentsByMeetingId(meetingId));
+    const provider = allAiProviders.find((p) => p.id === selectedAIProvider.provider);
+    if (provider && meeting) {
+      await generateMeetingSummary({
+        meeting,
+        provider,
+        selectedProvider: selectedAIProvider,
+      }).catch((err) => console.error("Failed to generate summary:", err));
     }
     const updated = await getMeetingById(meetingId);
     setMeeting(updated);
-  }, [meetingId, stopTranscription, allAiProviders, selectedAIProvider]);
+  }, [meetingId, meeting, stopTranscription, allAiProviders, selectedAIProvider]);
 
   const handleSaveTitle = useCallback(async () => {
     if (!meetingId || !editTitle.trim()) return;
@@ -269,7 +258,7 @@ const MeetingView = () => {
       return;
     }
 
-    const transcript = buildTranscriptContext(segments);
+    const transcript = buildTranscriptContext(segments, meeting?.type);
     const contextPrompt = `${MEETING_SYSTEM_PROMPT}\n\nCurrent meeting transcript:\n${transcript}`;
     const assistantId = `a-${Date.now()}`;
     setChatMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "" }]);

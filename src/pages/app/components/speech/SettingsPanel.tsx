@@ -266,11 +266,16 @@ export const SettingsPanel = ({
                   </Select>
                 </div>
                 <Textarea
-                  placeholder="Enter custom system prompt and context..."
+                  placeholder="Enter instructions for how the AI should answer..."
                   value={contextContent}
                   onChange={(e) => setContextContent(e.target.value)}
                   className="min-h-24 resize-none text-xs"
                 />
+                <p className="text-[10px] text-muted-foreground">
+                  For facts about you (CV, job description, stories), use the
+                  Knowledge page in the dashboard. They're added to every
+                  answer automatically.
+                </p>
               </div>
             )}
           </div>

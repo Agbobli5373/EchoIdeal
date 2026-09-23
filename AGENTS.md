@@ -29,3 +29,13 @@ Tauri v2 on Linux requires: `libwebkit2gtk-4.1-dev`, `libjavascriptcoregtk-4.1-d
 - The `tauri dev` command manages its own Vite server; do not start `npm run dev` separately before running `npx tauri dev` or port 1420 will conflict.
 - The build emits a signing key error at the end when creating updater artifacts; this is harmless for development.
 - `npm install` uses `--force` due to `.npmrc` containing `force=true` (needed for peer dependency conflicts with `@ricky0123/vad-react` requiring React 18 vs project's React 19).
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues for `Agbobli5373/EchoIdeal`, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Domain docs
+
+Single-context layout: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.

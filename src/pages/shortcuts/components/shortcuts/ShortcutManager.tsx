@@ -243,7 +243,7 @@ export const ShortcutManager = () => {
                     </code>
                     <Button
                       size="sm"
-                      variant="default"
+                      variant="outline"
                       onClick={() => {
                         setEditingAction(action.id);
                         setConflicts([]);

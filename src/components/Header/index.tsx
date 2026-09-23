@@ -1,7 +1,5 @@
-import { Button, Label } from "@/components";
+import { Label } from "@/components";
 import { cn } from "@/lib/utils";
-import { ArrowLeftIcon } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 
 interface HeaderProps {
   title: string;
@@ -12,7 +10,6 @@ interface HeaderProps {
   rightSlot?: React.ReactNode | null;
   showBorder?: boolean;
   className?: string;
-  allowBackButton?: boolean;
 }
 
 export const Header = ({
@@ -24,9 +21,7 @@ export const Header = ({
   rightSlot = null,
   showBorder = false,
   className,
-  allowBackButton = false,
 }: HeaderProps) => {
-  const navigate = useNavigate();
   return (
     <div
       className={cn(
@@ -41,11 +36,6 @@ export const Header = ({
       )}
     >
       <div className="flex items-center gap-2">
-        {allowBackButton && (
-          <Button size="icon" variant="outline" onClick={() => navigate(-1)}>
-            <ArrowLeftIcon className="size-3 lg:size-4 transition-all duration-300" />
-          </Button>
-        )}
         <div className="flex flex-col">
           <Label
             className={`${cn(

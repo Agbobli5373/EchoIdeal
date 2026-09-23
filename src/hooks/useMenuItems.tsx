@@ -1,75 +1,58 @@
 import {
-  Settings,
-  Code,
   MessagesSquare,
   WandSparkles,
   AudioLinesIcon,
-  SquareSlashIcon,
+  KeyboardIcon,
   MonitorIcon,
   PowerIcon,
   BugIcon,
-  MessageSquareTextIcon,
   MicIcon,
   BookOpenIcon,
+  PlugIcon,
+  PaletteIcon,
+  EyeOffIcon,
+  SlidersHorizontalIcon,
 } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 
+export type MenuItem = {
+  icon: React.ElementType;
+  label: string;
+  href: string;
+  count?: number;
+};
+
+export type MenuSection = {
+  label?: string;
+  items: MenuItem[];
+};
+
 export const useMenuItems = () => {
-  const menu: {
-    icon: React.ElementType;
-    label: string;
-    href: string;
-    count?: number;
-  }[] = [
+  // Your work first, then settings.
+  const sections: MenuSection[] = [
     {
-      icon: MessagesSquare,
-      label: "Chats",
-      href: "/chats",
+      items: [
+        { icon: MicIcon, label: "Meetings", href: "/meetings" },
+        { icon: BookOpenIcon, label: "Knowledge", href: "/knowledge" },
+        { icon: WandSparkles, label: "Prompts", href: "/prompts" },
+        { icon: MessagesSquare, label: "Chats", href: "/chats" },
+      ],
     },
     {
-      icon: MicIcon,
-      label: "Meetings",
-      href: "/meetings",
-    },
-    {
-      icon: WandSparkles,
-      label: "System prompts",
-      href: "/system-prompts",
-    },
-    {
-      icon: BookOpenIcon,
-      label: "Knowledge",
-      href: "/knowledge",
-    },
-    {
-      icon: MessageSquareTextIcon,
-      label: "Responses",
-      href: "/responses",
-    },
-    {
-      icon: MonitorIcon,
-      label: "Screenshot",
-      href: "/screenshot",
-    },
-    {
-      icon: AudioLinesIcon,
-      label: "Audio",
-      href: "/audio",
-    },
-    {
-      icon: SquareSlashIcon,
-      label: "Cursor & Shortcuts",
-      href: "/shortcuts",
-    },
-    {
-      icon: Settings,
-      label: "App Settings",
-      href: "/settings",
-    },
-    {
-      icon: Code,
-      label: "Dev space",
-      href: "/dev-space",
+      label: "Settings",
+      items: [
+        { icon: PlugIcon, label: "AI and Speech", href: "/ai-and-speech" },
+        { icon: AudioLinesIcon, label: "Audio", href: "/audio" },
+        { icon: MonitorIcon, label: "Screen Capture", href: "/screen-capture" },
+        {
+          icon: KeyboardIcon,
+          label: "Shortcuts and Cursor",
+          href: "/shortcuts-and-cursor",
+        },
+        { icon: PaletteIcon, label: "Appearance", href: "/appearance" },
+        { icon: EyeOffIcon, label: "Privacy", href: "/privacy" },
+        { icon: SlidersHorizontalIcon, label: "General", href: "/general" },
+      ],
     },
   ];
 
@@ -81,7 +64,7 @@ export const useMenuItems = () => {
     },
     {
       icon: PowerIcon,
-      label: "Quit echoideal",
+      label: "Quit EchoIdeal",
       action: async () => {
         await invoke("exit_app");
       },
@@ -89,7 +72,7 @@ export const useMenuItems = () => {
   ];
 
   return {
-    menu,
+    sections,
     footerItems,
   };
 };

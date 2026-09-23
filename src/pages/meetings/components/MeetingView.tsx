@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ScrollArea, Button, Input, Markdown } from "@/components";
+import { ScrollArea, Button, Input, Markdown, PageHeader } from "@/components";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -42,7 +42,6 @@ import {
 import { DocumentEditorDialog } from "@/pages/knowledge/dialogs";
 import { useApp } from "@/contexts";
 import {
-  ArrowLeftIcon,
   BookPlusIcon,
   ClockIcon,
   FileTextIcon,
@@ -463,36 +462,28 @@ const MeetingView = () => {
 
   return (
     <div className="flex flex-1 flex-col">
-      <header className="pt-8">
-        <div className="flex items-center gap-3 mb-1">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/meetings")} className="size-8">
-            <ArrowLeftIcon className="size-4" />
-          </Button>
-          <div className="flex-1 min-w-0">
-            {isEditingTitle ? (
-              <div className="flex items-center gap-2">
+      <header>
+        <PageHeader
+          title={meeting.title}
+          titleEditor={
+            isEditingTitle ? (
+              <div className="flex items-center gap-2 pb-1">
                 <Input
                   value={editTitle}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setEditTitle(e.target.value)}
                   onKeyDown={(e: React.KeyboardEvent) => e.key === "Enter" && handleSaveTitle()}
-                  className="h-8 text-lg font-semibold"
+                  className="h-9 text-lg font-semibold"
+                  aria-label="Meeting title"
                   autoFocus
                 />
-                <Button variant="ghost" size="icon" className="size-7" onClick={handleSaveTitle}>
-                  <CheckIcon className="size-3.5" />
+                <Button variant="ghost" size="icon" className="size-8" onClick={handleSaveTitle} title="Save title">
+                  <CheckIcon className="size-4" />
                 </Button>
               </div>
-            ) : (
-              <div className="flex items-center gap-2 group">
-                <h1 className="text-lg font-semibold truncate">{meeting.title}</h1>
-                {isActive && (
-                  <button onClick={() => { setEditTitle(meeting.title); setIsEditingTitle(true); }} className="opacity-0 group-hover:opacity-100 transition-opacity">
-                    <PencilIcon className="size-3 text-muted-foreground" />
-                  </button>
-                )}
-              </div>
-            )}
-            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5 flex-wrap">
+            ) : undefined
+          }
+          subtitle={
+            <div className="flex items-center gap-2 text-xs flex-wrap">
               <span>{formatDate(meeting.startedAt)}</span>
               <span className="text-muted-foreground/30">·</span>
               <span className="flex items-center gap-1">
@@ -521,47 +512,59 @@ const MeetingView = () => {
                 </span>
               )}
             </div>
-          </div>
-
-          {isActive && (
-            <div className="flex items-center gap-2 shrink-0">
-              {isTranscribing ? (
-                <Button size="sm" variant="outline" onClick={stopTranscription} className="gap-1.5">
-                  <MicOffIcon className="size-3" />Pause
-                </Button>
-              ) : (
-                <Button size="sm" variant="outline" onClick={handleStartTranscription} className="gap-1.5">
-                  <MicIcon className="size-3" />Transcribe
+          }
+          actions={
+            <>
+              {isActive && !isEditingTitle && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => { setEditTitle(meeting.title); setIsEditingTitle(true); }}
+                  className="gap-1.5"
+                  title="Rename this Meeting"
+                >
+                  <PencilIcon className="size-3" />Rename
                 </Button>
               )}
-              <Button size="sm" variant="destructive" onClick={handleEndMeeting} className="gap-1.5">
-                <SquareIcon className="size-3" />End
-              </Button>
-            </div>
-          )}
-
-          {canSaveRecap(meeting) && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleWriteRecap}
-              disabled={isWritingRecap}
-              className="gap-1.5 shrink-0"
-              title={`Write a Recap of this ${MEETING_TYPE_LABELS[meeting.type].toLowerCase()} to use in your next round`}
-            >
-              {isWritingRecap ? (
-                <Loader2Icon className="size-3 animate-spin" />
-              ) : (
-                <BookPlusIcon className="size-3" />
+              {isActive && (
+                <>
+                  {isTranscribing ? (
+                    <Button size="sm" variant="outline" onClick={stopTranscription} className="gap-1.5">
+                      <MicOffIcon className="size-3" />Pause
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" onClick={handleStartTranscription} className="gap-1.5">
+                      <MicIcon className="size-3" />Transcribe
+                    </Button>
+                  )}
+                  <Button size="sm" variant="destructive" onClick={handleEndMeeting} className="gap-1.5">
+                    <SquareIcon className="size-3" />End
+                  </Button>
+                </>
               )}
-              {isWritingRecap ? "Writing Recap…" : "Save as knowledge"}
-            </Button>
-          )}
-        </div>
+              {canSaveRecap(meeting) && (
+                <Button
+                  size="sm"
+                  onClick={handleWriteRecap}
+                  disabled={isWritingRecap}
+                  className="gap-1.5"
+                  title={`Write a Recap of this ${MEETING_TYPE_LABELS[meeting.type].toLowerCase()} to use in your next round`}
+                >
+                  {isWritingRecap ? (
+                    <Loader2Icon className="size-3 animate-spin" />
+                  ) : (
+                    <BookPlusIcon className="size-3" />
+                  )}
+                  {isWritingRecap ? "Writing Recap…" : "Save as knowledge"}
+                </Button>
+              )}
+            </>
+          }
+        />
 
         {recapMessage && (
           <div
-            className={`mx-11 mt-2 flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${
+            className={`mt-2 flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${
               recapMessage.saved ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-destructive/10 text-destructive"
             }`}
             role="status"
@@ -576,11 +579,11 @@ const MeetingView = () => {
         )}
 
         {transcriptionError && (
-          <div className="mx-11 mt-2 px-3 py-2 rounded-lg bg-destructive/10 text-destructive text-xs">{transcriptionError}</div>
+          <div className="mt-2 px-3 py-2 rounded-lg bg-destructive/10 text-destructive text-xs">{transcriptionError}</div>
         )}
 
         {showSpeakerEdit && (
-          <div className="mx-11 mt-2 p-3 rounded-lg border border-border/50 bg-card/50 space-y-2">
+          <div className="mt-2 p-3 rounded-lg border border-border/50 bg-card/50 space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-muted-foreground flex items-center gap-1.5"><UsersIcon className="size-3" />Rename Speakers</span>
               <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => setShowSpeakerEdit(false)}>Done</Button>
@@ -597,7 +600,7 @@ const MeetingView = () => {
         )}
 
         {!showSpeakerEdit && segments.length > 0 && (
-          <div className="mx-11 mt-1">
+          <div className="-mx-2 mt-1">
             <Button variant="ghost" size="sm" className="h-6 text-[10px] text-muted-foreground gap-1" onClick={() => setShowSpeakerEdit(true)}>
               <UsersIcon className="size-3" />Rename speakers
             </Button>
@@ -627,7 +630,7 @@ const MeetingView = () => {
         <TabsContent value="transcript" className="flex-1 mt-0 relative">
           <div
             ref={scrollRef}
-            className="h-[calc(100vh-14rem)] overflow-y-auto pr-4"
+            className="h-[calc(100vh-14rem-var(--chrome-h,0px))] overflow-y-auto pr-4"
             onScroll={(e) => {
               const el = e.currentTarget;
               const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
@@ -702,7 +705,7 @@ const MeetingView = () => {
 
         {/* AI CHAT TAB */}
         <TabsContent value="chat" className="flex-1 mt-0 flex flex-col">
-          <div ref={chatScrollRef} className="flex-1 h-[calc(100vh-20rem)] overflow-y-auto pr-4 py-2">
+          <div ref={chatScrollRef} className="flex-1 h-[calc(100vh-20rem-var(--chrome-h,0px))] overflow-y-auto pr-4 py-2">
             {chatMessages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-4">
                 <div className="flex size-12 items-center justify-center rounded-xl bg-primary/10">
@@ -790,7 +793,7 @@ const MeetingView = () => {
 
         {/* SUMMARY TAB */}
         <TabsContent value="summary" className="flex-1 mt-0">
-          <ScrollArea className="h-[calc(100vh-14rem)] pr-4">
+          <ScrollArea className="h-[calc(100vh-14rem-var(--chrome-h,0px))] pr-4">
             {meeting.summary ? (
               <div className="py-4 text-sm text-foreground/90 leading-relaxed">
                 <Markdown>{meeting.summary}</Markdown>

@@ -3,6 +3,7 @@ import {
   Dashboard,
   App,
   SystemPrompts,
+  Knowledge,
   ViewChat,
   Settings,
   DevSpace,
@@ -27,6 +28,7 @@ export default function AppRoutes() {
           <Route path="/meetings" element={<Meetings />} />
           <Route path="/meetings/:meetingId" element={<MeetingView />} />
           <Route path="/system-prompts" element={<SystemPrompts />} />
+          <Route path="/knowledge" element={<Knowledge />} />
           <Route path="/chats/view/:conversationId" element={<ViewChat />} />
           <Route path="/shortcuts" element={<Shortcuts />} />
           <Route path="/screenshot" element={<Screenshot />} />

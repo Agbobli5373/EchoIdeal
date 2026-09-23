@@ -12,6 +12,7 @@ export * from "./useHistory";
 export * from "./useCopyToClipboard";
 export * from "./useTitles";
 export * from "./useSystemPrompts";
+export * from "./useKnowledge";
 export * from "./useApp";
 export * from "./useMenuItems";
 export * from "./useMeeting";

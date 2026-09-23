@@ -4,6 +4,7 @@ import {
   Completion,
   AudioVisualizer,
   StatusIndicator,
+  KnowledgeIndicator,
 } from "./components";
 import { useApp } from "@/hooks";
 import { useApp as useAppContext } from "@/contexts";
@@ -78,6 +79,7 @@ const App = () => {
             </Button>
           </div>
 
+          <KnowledgeIndicator />
           <Updater />
           <DragButton />
         </Card>

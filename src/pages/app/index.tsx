@@ -5,6 +5,7 @@ import {
   AudioVisualizer,
   StatusIndicator,
   KnowledgeIndicator,
+  MeetingChip,
 } from "./components";
 import { useApp } from "@/hooks";
 import { useApp as useAppContext } from "@/contexts";
@@ -69,6 +70,13 @@ const App = () => {
             }`}
           >
             <Completion isHidden={isHidden} />
+            {systemAudio.activeMeeting && (
+              <MeetingChip
+                meeting={systemAudio.activeMeeting}
+                onEnd={systemAudio.endActiveMeeting}
+                isEnding={systemAudio.isEndingMeeting}
+              />
+            )}
             <Button
               size={"icon"}
               className="cursor-pointer bg-gradient-to-br from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-sm"

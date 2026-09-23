@@ -1,20 +1,37 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 import {
   App,
-  SystemPrompts,
+  Prompts,
   Knowledge,
   ViewChat,
-  Settings,
-  DevSpace,
-  Shortcuts,
+  AiAndSpeech,
+  ShortcutsAndCursor,
   Audio,
-  Screenshot,
+  ScreenCapture,
+  Appearance,
+  Privacy,
+  General,
   Chats,
-  Responses,
   Meetings,
   MeetingView,
 } from "@/pages";
 import { DashboardLayout } from "@/layouts";
+
+// Pages that were renamed, merged or split, and where they live now.
+const REDIRECTS: Record<string, string> = {
+  "/dashboard": "/chats",
+  "/system-prompts": "/prompts",
+  "/responses": "/prompts",
+  "/dev-space": "/ai-and-speech",
+  "/screenshot": "/screen-capture",
+  "/shortcuts": "/shortcuts-and-cursor",
+  "/settings": "/general",
+};
 
 export default function AppRoutes() {
   return (
@@ -22,19 +39,29 @@ export default function AppRoutes() {
       <Routes>
         <Route path="/" element={<App />} />
         <Route element={<DashboardLayout />}>
-          <Route path="/dashboard" element={<Navigate to="/chats" replace />} />
-          <Route path="/chats" element={<Chats />} />
           <Route path="/meetings" element={<Meetings />} />
           <Route path="/meetings/:meetingId" element={<MeetingView />} />
-          <Route path="/system-prompts" element={<SystemPrompts />} />
           <Route path="/knowledge" element={<Knowledge />} />
+          <Route path="/prompts" element={<Prompts />} />
+          <Route path="/chats" element={<Chats />} />
           <Route path="/chats/view/:conversationId" element={<ViewChat />} />
-          <Route path="/shortcuts" element={<Shortcuts />} />
-          <Route path="/screenshot" element={<Screenshot />} />
-          <Route path="/settings" element={<Settings />} />
+          <Route path="/ai-and-speech" element={<AiAndSpeech />} />
           <Route path="/audio" element={<Audio />} />
-          <Route path="/responses" element={<Responses />} />
-          <Route path="/dev-space" element={<DevSpace />} />
+          <Route path="/screen-capture" element={<ScreenCapture />} />
+          <Route
+            path="/shortcuts-and-cursor"
+            element={<ShortcutsAndCursor />}
+          />
+          <Route path="/appearance" element={<Appearance />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/general" element={<General />} />
+          {Object.entries(REDIRECTS).map(([from, to]) => (
+            <Route
+              key={from}
+              path={from}
+              element={<Navigate to={to} replace />}
+            />
+          ))}
         </Route>
       </Routes>
     </Router>

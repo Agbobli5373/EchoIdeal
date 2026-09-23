@@ -25,6 +25,8 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -44,73 +46,82 @@
 }
 
 :root {
-  --radius: 0.75rem;
+  /* Groups 8px, controls 4-6px (radius-sm / radius-md) */
+  --radius: 0.5rem;
   --cursor-type: default;
-  --background: oklch(0.985 0.002 260);
-  --foreground: oklch(0.15 0.01 260);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.15 0.01 260);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.15 0.01 260);
-  --primary: oklch(0.55 0.2 265);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.96 0.01 265);
-  --secondary-foreground: oklch(0.25 0.02 265);
-  --muted: oklch(0.955 0.008 265);
-  --muted-foreground: oklch(0.5 0.02 260);
-  --accent: oklch(0.93 0.03 265);
-  --accent-foreground: oklch(0.35 0.08 265);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.91 0.01 265);
-  --input: oklch(0.91 0.01 265);
-  --ring: oklch(0.55 0.2 265);
-  --chart-1: oklch(0.55 0.2 265);
+  /* Greys lean slightly indigo. Indigo itself (hue 265) is kept for the main
+     button, the selected item, focus rings and meters. */
+  --background: #f9f9fb;
+  --foreground: #1b1b23;
+  --card: #ffffff;
+  --card-foreground: #1b1b23;
+  --popover: #ffffff;
+  --popover-foreground: #1b1b23;
+  --primary: #4c56d6;
+  --primary-foreground: #ffffff;
+  --secondary: #efeff3;
+  --secondary-foreground: #1b1b23;
+  --muted: #f1f1f5;
+  --muted-foreground: #5d5d6c;
+  --accent: #ececf1;
+  --accent-foreground: #1b1b23;
+  --destructive: #c4382e;
+  --border: #e3e3ea;
+  --input: #d5d5de;
+  --ring: #4c56d6;
+  /* Status: ready, and needs attention */
+  --ok: #1e8a4c;
+  --warn: #a86a0c;
+  --chart-1: #4c56d6;
   --chart-2: oklch(0.65 0.18 195);
   --chart-3: oklch(0.6 0.15 145);
   --chart-4: oklch(0.75 0.15 75);
   --chart-5: oklch(0.6 0.22 330);
-  --sidebar: oklch(0.98 0.005 265);
-  --sidebar-foreground: oklch(0.15 0.01 260);
-  --sidebar-primary: oklch(0.55 0.2 265);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.94 0.025 265);
-  --sidebar-accent-foreground: oklch(0.25 0.06 265);
-  --sidebar-border: oklch(0.91 0.01 265);
-  --sidebar-ring: oklch(0.55 0.2 265);
+  --sidebar: #eeeef2;
+  --sidebar-foreground: #1b1b23;
+  --sidebar-primary: #4c56d6;
+  --sidebar-primary-foreground: #ffffff;
+  /* Translucent, so it reads on Mica and vibrancy as well as on --sidebar */
+  --sidebar-accent: rgba(20, 20, 40, 0.06);
+  --sidebar-accent-foreground: #1b1b23;
+  --sidebar-border: #e3e3ea;
+  --sidebar-ring: #4c56d6;
 }
 
 .dark {
-  --background: oklch(0.13 0.015 265);
-  --foreground: oklch(0.95 0.01 265);
-  --card: oklch(0.18 0.02 265);
-  --card-foreground: oklch(0.95 0.01 265);
-  --popover: oklch(0.18 0.02 265);
-  --popover-foreground: oklch(0.95 0.01 265);
-  --primary: oklch(0.65 0.22 265);
-  --primary-foreground: oklch(0.98 0 0);
-  --secondary: oklch(0.24 0.025 265);
-  --secondary-foreground: oklch(0.95 0.01 265);
-  --muted: oklch(0.24 0.02 265);
-  --muted-foreground: oklch(0.65 0.03 265);
-  --accent: oklch(0.28 0.04 265);
-  --accent-foreground: oklch(0.95 0.01 265);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0.02 265 / 12%);
-  --input: oklch(1 0.02 265 / 15%);
-  --ring: oklch(0.65 0.22 265);
-  --chart-1: oklch(0.65 0.22 265);
+  --background: #26262b;
+  --foreground: #ededf3;
+  --card: #2d2d33;
+  --card-foreground: #ededf3;
+  --popover: #2d2d33;
+  --popover-foreground: #ededf3;
+  --primary: #5f69e8;
+  --primary-foreground: #ffffff;
+  --secondary: #34343b;
+  --secondary-foreground: #ededf3;
+  --muted: #303036;
+  --muted-foreground: #a7a7b6;
+  --accent: #34343b;
+  --accent-foreground: #ededf3;
+  --destructive: #ff7a70;
+  --border: #37373f;
+  --input: #45454e;
+  --ring: #5f69e8;
+  --ok: #4cc37f;
+  --warn: #e3a83b;
+  --chart-1: #5f69e8;
   --chart-2: oklch(0.7 0.17 195);
   --chart-3: oklch(0.75 0.15 75);
   --chart-4: oklch(0.6 0.22 330);
   --chart-5: oklch(0.65 0.2 30);
-  --sidebar: oklch(0.16 0.02 265);
-  --sidebar-foreground: oklch(0.95 0.01 265);
-  --sidebar-primary: oklch(0.65 0.22 265);
-  --sidebar-primary-foreground: oklch(0.98 0 0);
-  --sidebar-accent: oklch(0.24 0.03 265);
-  --sidebar-accent-foreground: oklch(0.95 0.01 265);
-  --sidebar-border: oklch(1 0.02 265 / 12%);
-  --sidebar-ring: oklch(0.65 0.22 265);
+  --sidebar: #1f1f23;
+  --sidebar-foreground: #ededf3;
+  --sidebar-primary: #5f69e8;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgba(255, 255, 255, 0.075);
+  --sidebar-accent-foreground: #ededf3;
+  --sidebar-border: #37373f;
+  --sidebar-ring: #5f69e8;
 }
 
 @layer base {
@@ -193,6 +204,16 @@ body {
   font-size: 13px;
 }
 
+/* Height of the window chrome above page content: the title bar on Windows
+   and Linux, the toolbar row on macOS */
+:root[data-window="dashboard"] {
+  --chrome-h: 44px;
+}
+
+:root[data-window="dashboard"][data-os="macos"] {
+  --chrome-h: 52px;
+}
+
 :root[data-window="dashboard"] .dashboard-frame {
   background-color: var(--sidebar);
 }
@@ -207,15 +228,17 @@ body {
   background-color: var(--background);
 }
 
-/* Starts page headers below the 52px toolbar row the traffic lights sit in */
-:root[data-window="dashboard"][data-os="macos"] .dashboard-content {
-  padding-top: 20px;
-}
-
 :root[data-window="dashboard"]:not([data-os="macos"]) .dashboard-content {
   border-top: 1px solid var(--border);
   border-left: 1px solid var(--border);
   border-top-left-radius: 8px;
+}
+
+/* PageHeader's title: display type, 28px on Windows and Linux */
+.page-title {
+  font-family: "Segoe UI Variable Display", "Segoe UI Variable Text",
+    "Segoe UI", system-ui, sans-serif;
+  font-size: 28px;
 }
 
 /* Streamdown code block styling */

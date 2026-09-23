@@ -1,35 +1,22 @@
-import { Header, ScrollArea } from "@/components";
+import { PageHeader, ScrollArea } from "@/components";
 
 export const PageLayout = ({
   children,
   title,
-  description,
-  rightSlot,
-  allowBackButton = false,
-  isMainTitle = true,
+  subtitle,
+  actions,
 }: {
   children: React.ReactNode;
   title: string;
-  description: string;
-  rightSlot?: React.ReactNode;
-  allowBackButton?: boolean;
-  isMainTitle?: boolean;
+  subtitle?: React.ReactNode;
+  actions?: React.ReactNode;
 }) => {
   return (
-    <div className="flex flex-1 flex-col">
-      <header className="pt-8">
-        <Header
-          isMainTitle={isMainTitle}
-          showBorder={true}
-          title={title}
-          description={description}
-          rightSlot={rightSlot}
-          allowBackButton={allowBackButton}
-        />
-      </header>
+    <div className="flex min-h-0 flex-1 flex-col">
+      <PageHeader title={title} subtitle={subtitle} actions={actions} />
 
-      <ScrollArea className="h-[calc(100vh-5rem)] pr-6">
-        <div className="flex flex-col gap-6 pb-12 pt-4 px-1">{children}</div>
+      <ScrollArea className="min-h-0 flex-1 pr-6">
+        <div className="flex flex-col gap-6 pb-12 pt-1 px-1">{children}</div>
       </ScrollArea>
     </div>
   );

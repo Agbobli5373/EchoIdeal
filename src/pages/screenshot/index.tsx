@@ -6,8 +6,8 @@ const Settings = () => {
   const settings = useSettings();
   return (
     <PageLayout
-      title="Screenshot"
-      description="Manage your screenshot settings"
+      title="Screen Capture"
+      subtitle="How Screen Captures are taken and answered."
     >
       {/* Screenshot & Analyze Prompt */}
       <AnalyzePromptConfig />

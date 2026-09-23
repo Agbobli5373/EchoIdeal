@@ -137,7 +137,7 @@ export const ResultsSection = ({
               </p>
               <div className="space-y-1.5 max-h-40 overflow-y-auto">
                 {conversation.messages
-                  .slice(2)
+                  .slice(0, -2)
                   .sort((a, b) => b.timestamp - a.timestamp)
                   .map((message, index) => (
                     <div

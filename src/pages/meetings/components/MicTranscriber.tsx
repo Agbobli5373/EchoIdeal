@@ -7,7 +7,7 @@ import { floatArrayToWav } from "@/lib/utils";
 
 interface MicTranscriberProps {
   isActive: boolean;
-  onTranscription: (text: string) => void;
+  onTranscription: (text: string, spokenAt: number) => void;
 }
 
 const MicTranscriberInternal = ({
@@ -19,7 +19,8 @@ const MicTranscriberInternal = ({
     selectedSttProvider,
     selectedAudioDevices,
   } = useApp();
-  const isProcessingRef = useRef(false);
+  // Utterances are transcribed one at a time, in the order they were spoken.
+  const queueRef = useRef<Promise<void>>(Promise.resolve());
 
   const audioConstraints: MediaTrackConstraints =
     selectedAudioDevices?.input?.id && selectedAudioDevices.input.id !== "default"
@@ -32,42 +33,45 @@ const MicTranscriberInternal = ({
     return allProviders.find((p) => p.id === selectedSttProvider.provider) || null;
   };
 
+  const transcribe = async (audio: Float32Array, spokenAt: number) => {
+    try {
+      const audioBlob = floatArrayToWav(audio, 16000, "wav");
+      const provider = getSttProvider();
+      if (!provider) return;
+
+      const transcription = await Promise.race([
+        fetchSTT({
+          provider,
+          selectedProvider: selectedSttProvider,
+          audio: audioBlob,
+        }),
+        new Promise<string>((_, reject) =>
+          setTimeout(() => reject(new Error("timeout")), 30000)
+        ),
+      ]);
+
+      if (
+        transcription &&
+        !transcription.includes("Error") &&
+        !transcription.includes("No transcription")
+      ) {
+        onTranscription(transcription.trim(), spokenAt);
+      }
+    } catch (err) {
+      console.error("Mic transcription error:", err);
+    }
+  };
+
   const vad = useMicVAD({
     userSpeakingThreshold: 0.6,
     startOnLoad: isActive,
     additionalAudioConstraints: audioConstraints,
-    onSpeechEnd: async (audio) => {
-      if (isProcessingRef.current || !isActive) return;
-      isProcessingRef.current = true;
-
-      try {
-        const audioBlob = floatArrayToWav(audio, 16000, "wav");
-        const provider = getSttProvider();
-        if (!provider) return;
-
-        const transcription = await Promise.race([
-          fetchSTT({
-            provider,
-            selectedProvider: selectedSttProvider,
-            audio: audioBlob,
-          }),
-          new Promise<string>((_, reject) =>
-            setTimeout(() => reject(new Error("timeout")), 30000)
-          ),
-        ]);
-
-        if (
-          transcription &&
-          !transcription.includes("Error") &&
-          !transcription.includes("No transcription")
-        ) {
-          onTranscription(transcription.trim());
-        }
-      } catch (err) {
-        console.error("Mic transcription error:", err);
-      } finally {
-        isProcessingRef.current = false;
-      }
+    onSpeechEnd: (audio) => {
+      if (!isActive) return;
+      const spokenAt = Date.now();
+      queueRef.current = queueRef.current.then(() =>
+        transcribe(audio, spokenAt)
+      );
     },
   });
 

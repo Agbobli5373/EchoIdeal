@@ -82,11 +82,13 @@ const View = () => {
 
   return (
     <PageLayout
-      isMainTitle={false}
-      allowBackButton={true}
-      title={messages?.title || ""}
-      description={`${messages?.messages.length} messages in this conversation`}
-      rightSlot={
+      title={messages?.title || "Chat"}
+      subtitle={
+        messages
+          ? `${messages.messages.length} messages in this conversation`
+          : undefined
+      }
+      actions={
         <div className="flex flex-row items-center gap-2">
           <Button
             variant="outline"

@@ -26,6 +26,11 @@ import { CreateEditDialog } from "./CreateEditDialog";
 import { EchoIdealPrompts } from "./EchoIdealPrompts";
 import { useState } from "react";
 import { PageLayout } from "@/layouts";
+import {
+  ResponseLength,
+  LanguageSelector,
+  AutoScrollToggle,
+} from "../responses/components";
 
 const SystemPrompts = () => {
   const {
@@ -165,9 +170,20 @@ const SystemPrompts = () => {
 
   return (
     <PageLayout
-      title="System Prompts"
-      description="Manage your AI behavior profiles and create new ones"
+      title="Prompts"
+      subtitle="How Suggested Answers are written."
+      actions={
+        <Button variant="default" size="default" onClick={handleCreateClick}>
+          <PlusIcon className="size-4" />
+          Create prompt
+        </Button>
+      }
     >
+      {/* Answer style, from the former Responses page */}
+      <ResponseLength />
+      <LanguageSelector />
+      <AutoScrollToggle />
+
       {/* Error Display */}
       {error && (
         <div className="mb-4 rounded-lg border border-destructive/20 bg-destructive/10 p-3">
@@ -186,10 +202,6 @@ const SystemPrompts = () => {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <Button variant="default" size="default" onClick={handleCreateClick}>
-          <PlusIcon className="size-4" />
-          Create New
-        </Button>
       </div>
       {filteredPrompts.length === 0 ? (
         <Empty

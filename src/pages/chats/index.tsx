@@ -28,8 +28,8 @@ const Dashboard = () => {
 
   return (
     <PageLayout
-      title="All conversations"
-      description="View all your conversations"
+      title="Chats"
+      subtitle="Overlay conversations outside a Meeting."
     >
       <>
         {conversations.conversations.length === 0 ? (

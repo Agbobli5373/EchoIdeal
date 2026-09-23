@@ -102,8 +102,8 @@ const Meetings = () => {
   return (
     <PageLayout
       title="Meetings"
-      description="Record and transcribe your meetings in real time"
-      rightSlot={
+      subtitle="Review what was said and shown."
+      actions={
         activeMeeting ? (
           <div className="flex items-center gap-2">
             <span className="flex items-center gap-1.5 text-xs text-red-500 font-medium">

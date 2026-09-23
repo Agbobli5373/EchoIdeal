@@ -3,7 +3,7 @@ import {
   getAllConversations,
   deleteConversation,
   DOWNLOAD_SUCCESS_DISPLAY_MS,
-  stripUngroundedMarker,
+  cleanAnswer,
 } from "@/lib";
 import { ChatConversation } from "@/types/completion";
 
@@ -195,7 +195,7 @@ export function useHistory(): UseHistoryReturn {
 
     conversation.messages.forEach((message, index) => {
       const roleLabel = message.role.toUpperCase();
-      markdown += `## ${roleLabel}: ${stripUngroundedMarker(message.content)}\n`;
+      markdown += `## ${roleLabel}: ${cleanAnswer(message.content)}\n`;
 
       if (index < conversation.messages.length - 1) {
         markdown += "\n";

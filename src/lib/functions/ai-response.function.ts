@@ -15,10 +15,22 @@ import { CHUNK_POLL_INTERVAL_MS } from "../chat-constants";
 import { getResponseSettings, RESPONSE_LENGTHS, LANGUAGES } from "@/lib";
 import { MARKDOWN_FORMATTING_INSTRUCTIONS } from "@/config/constants";
 import { getActiveKnowledgeDocuments } from "../database/knowledge.action";
-import {
-  buildKnowledgePrompt,
-  stripUngroundedMarker,
-} from "../knowledge/grounding";
+import { buildKnowledgePrompt } from "../knowledge/grounding";
+import { cleanAnswer } from "../meeting/answer";
+
+// fetchAIResponse reports request failures as text chunks rather than throwing.
+const ERROR_CHUNK_PREFIXES = [
+  "Network error during API request",
+  "API request failed",
+  "Failed to parse non-streaming response",
+  "Streaming not supported",
+  "Error reading stream",
+  "EchoIdeal API Error",
+];
+
+export function isAIErrorText(text: string): boolean {
+  return ERROR_CHUNK_PREFIXES.some((prefix) => text.startsWith(prefix));
+}
 
 async function buildKnowledgeSection(mode: KnowledgeMode): Promise<string> {
   if (mode === "none") return "";
@@ -32,7 +44,8 @@ async function buildKnowledgeSection(mode: KnowledgeMode): Promise<string> {
 
 function buildEnhancedSystemPrompt(
   baseSystemPrompt: string | undefined,
-  knowledgeSection: string
+  knowledgeSection: string,
+  meetingContext: string | undefined
 ): string {
   const responseSettings = getResponseSettings();
   const prompts: string[] = [];
@@ -58,8 +71,9 @@ function buildEnhancedSystemPrompt(
   // Add markdown formatting instructions
   prompts.push(MARKDOWN_FORMATTING_INSTRUCTIONS);
 
-  const prompt = prompts.join(" ");
-  return knowledgeSection ? `${prompt}\n\n${knowledgeSection}` : prompt;
+  return [prompts.join(" "), knowledgeSection, meetingContext]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 // EchoIdeal AI streaming function
@@ -193,6 +207,8 @@ export async function* fetchAIResponse(params: {
   // "answer" (default) adds Active Knowledge with grounding rules; "background" adds it
   // without the Ungrounded marker (e.g. summaries); "none" leaves it out.
   knowledgeMode?: KnowledgeMode;
+  // Meeting Memory and per-request Meeting rules, placed after Active Knowledge.
+  meetingContext?: string;
 }): AsyncIterable<string> {
   try {
     const {
@@ -203,10 +219,11 @@ export async function* fetchAIResponse(params: {
       imagesBase64 = [],
       signal,
       knowledgeMode = "answer",
+      meetingContext,
     } = params;
     const history = (params.history ?? []).map((msg) =>
       typeof msg.content === "string"
-        ? { ...msg, content: stripUngroundedMarker(msg.content) }
+        ? { ...msg, content: cleanAnswer(msg.content) }
         : msg
     );
 
@@ -217,7 +234,8 @@ export async function* fetchAIResponse(params: {
 
     const enhancedSystemPrompt = buildEnhancedSystemPrompt(
       systemPrompt,
-      await buildKnowledgeSection(knowledgeMode)
+      await buildKnowledgeSection(knowledgeMode),
+      meetingContext
     );
 
     // Check if we should use EchoIdeal API instead

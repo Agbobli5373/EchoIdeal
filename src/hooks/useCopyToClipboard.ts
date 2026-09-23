@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { stripUngroundedMarker } from "@/lib/knowledge/grounding";
+import { cleanAnswer } from "@/lib/meeting/answer";
 
 type UseCopyToClipboardProps = {
   text: string;
@@ -15,7 +15,7 @@ export function useCopyToClipboard({
 
   const handleCopy = useCallback(() => {
     navigator.clipboard
-      .writeText(stripUngroundedMarker(text))
+      .writeText(cleanAnswer(text))
       .then(() => {
         setIsCopied(true);
         if (timeoutRef.current) {

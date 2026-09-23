@@ -207,6 +207,11 @@ body {
   background-color: var(--background);
 }
 
+/* Starts page headers below the 52px toolbar row the traffic lights sit in */
+:root[data-window="dashboard"][data-os="macos"] .dashboard-content {
+  padding-top: 20px;
+}
+
 :root[data-window="dashboard"]:not([data-os="macos"]) .dashboard-content {
   border-top: 1px solid var(--border);
   border-left: 1px solid var(--border);

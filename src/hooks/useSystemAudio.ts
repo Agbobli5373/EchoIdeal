@@ -3,7 +3,7 @@ import { useWindowResize, useGlobalShortcuts } from ".";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { useApp } from "@/contexts";
-import { fetchSTT, fetchAIResponse } from "@/lib/functions";
+import { fetchSTT, fetchAIResponse, isAIErrorText } from "@/lib/functions";
 import {
   DEFAULT_QUICK_ACTIONS,
   DEFAULT_SYSTEM_PROMPT,
@@ -27,10 +27,13 @@ import {
   getMeetingEntries,
 } from "@/lib/database/meetings.action";
 import {
+  MemoryAI,
   activeMeetingStore,
   generateMeetingSummary,
+  keepMemoryInBudget,
+  prepareMeetingRequest,
+  splitScreenText,
   useActiveMeeting,
-  withMeetingInstruction,
 } from "@/lib/meeting";
 import { getScreenshotAnalyzePrompt } from "@/lib/storage/screenshot-analyze.storage";
 import { Message } from "@/types/completion";
@@ -326,6 +329,10 @@ export function useSystemAudio() {
                 timeoutPromise,
               ]);
 
+              // Noise the speech provider found no words in; it must not become an
+              // Interviewer line in Meeting Memory.
+              if (transcription.includes("No transcription found")) return;
+
               if (transcription.trim()) {
                 setLastTranscription(transcription);
                 setError("");
@@ -524,9 +531,7 @@ export function useSystemAudio() {
           return;
         }
       }
-      const base64: string = await invoke("capture_screenshot", {
-        screenId: null,
-      });
+      const base64: string = await invoke("capture_to_base64");
       const effectiveSystemPrompt = useSystemPrompt
         ? systemPrompt || DEFAULT_SYSTEM_PROMPT
         : contextContent || DEFAULT_SYSTEM_PROMPT;
@@ -633,15 +638,43 @@ export function useSystemAudio() {
           setError("AI provider config not found.");
           return;
         }
+        const ai: MemoryAI = {
+          provider: useEchoIdealAPI ? undefined : provider,
+          selectedProvider: selectedAIProvider,
+        };
+
+        // In a Meeting, Meeting Memory replaces the running thread. A Private Request keeps the
+        // latest exchange, so quick actions act on the answer that is on screen.
+        const request = meeting
+          ? {
+              ...(await prepareMeetingRequest({
+                meeting,
+                systemPrompt: prompt,
+                images: entry.images ?? [],
+                ai,
+                excludeSegmentId: entry.segmentId,
+              })),
+              history:
+                entry.kind === "private_request"
+                  ? previousMessages.slice(-2)
+                  : [],
+            }
+          : {
+              systemPrompt: prompt,
+              meetingContext: undefined,
+              imagesBase64: entry.images ?? [],
+              history: previousMessages,
+            };
 
         try {
           for await (const chunk of fetchAIResponse({
-            provider: useEchoIdealAPI ? undefined : provider,
+            provider: ai.provider,
             selectedProvider: selectedAIProvider,
-            systemPrompt: withMeetingInstruction(prompt, meeting),
-            history: previousMessages,
+            systemPrompt: request.systemPrompt,
+            meetingContext: request.meetingContext,
+            history: request.history,
             userMessage: transcription,
-            imagesBase64: entry.images ?? [],
+            imagesBase64: request.imagesBase64,
           })) {
             fullResponse += chunk;
             setLastAIResponse((prev) => prev + chunk);
@@ -651,6 +684,7 @@ export function useSystemAudio() {
         }
 
         if (fullResponse) {
+          const { answer, screenText } = splitScreenText(fullResponse);
           const timestamp = Date.now();
           setConversation((prev) => ({
             ...prev,
@@ -665,7 +699,7 @@ export function useSystemAudio() {
               {
                 id: generateMessageId("assistant", timestamp + 1),
                 role: "assistant" as const,
-                content: fullResponse,
+                content: answer,
                 timestamp: timestamp + 1,
               },
             ],
@@ -673,18 +707,22 @@ export function useSystemAudio() {
             title: prev.title || generateConversationTitle(transcription),
           }));
 
-          if (meeting) {
+          if (meeting && !isAIErrorText(fullResponse)) {
             await addMeetingEntry({
               meetingId: meeting.id,
               kind: entry.kind,
               prompt: transcription,
-              content: fullResponse,
+              content: answer,
               images: entry.images ?? [],
+              screenText,
               segmentId: entry.segmentId ?? null,
               timeMs: entry.timeMs,
             }).catch((err) =>
               console.error("Failed to save meeting entry:", err)
             );
+            if (entry.kind !== "private_request") {
+              void keepMemoryInBudget(meeting.id, ai);
+            }
           }
         }
       } catch (err) {
@@ -958,23 +996,39 @@ export function useSystemAudio() {
     }
   }, [pendingResume, capturing, stopCapture, allAiProviders, selectedAIProvider]);
 
-  // The Candidate's own speech is only recorded; it never triggers a Suggested Answer.
+  // The Candidate's own speech is only recorded (into Meeting Memory); it never triggers a
+  // Suggested Answer.
   const recordCandidateSpeech = useCallback(
     async (text: string, spokenAt: number) => {
       const meeting = activeMeetingStore.get();
       if (!meeting) return;
-      await addTranscriptSegment({
-        id: newSegmentId(),
-        meetingId: meeting.id,
-        speaker: "You",
-        content: text,
-        startTimeMs: spokenAt - meeting.startedAt,
-        endTimeMs: Date.now() - meeting.startedAt,
-        confidence: null,
-        isFinal: true,
-      }).catch((err) => console.error("Failed to save Spoken Answer:", err));
+      try {
+        await addTranscriptSegment({
+          id: newSegmentId(),
+          meetingId: meeting.id,
+          speaker: "You",
+          content: text,
+          startTimeMs: spokenAt - meeting.startedAt,
+          endTimeMs: Date.now() - meeting.startedAt,
+          confidence: null,
+          isFinal: true,
+        });
+      } catch (err) {
+        console.error("Failed to save Spoken Answer:", err);
+        return;
+      }
+      const useEchoIdealAPI = await shouldUseEchoIdealAPI();
+      const provider = allAiProviders.find(
+        (p) => p.id === selectedAIProvider.provider
+      );
+      if (provider || useEchoIdealAPI) {
+        void keepMemoryInBudget(meeting.id, {
+          provider: useEchoIdealAPI ? undefined : provider,
+          selectedProvider: selectedAIProvider,
+        });
+      }
     },
-    []
+    [allAiProviders, selectedAIProvider]
   );
 
   // Update VAD configuration

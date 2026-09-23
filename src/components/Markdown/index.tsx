@@ -2,8 +2,8 @@ import React from "react";
 import { Streamdown } from "streamdown";
 import "katex/dist/katex.min.css";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { CircleAlertIcon } from "lucide-react";
-import { splitUngrounded } from "@/lib/knowledge/grounding";
+import { CircleAlertIcon, EyeOffIcon } from "lucide-react";
+import { parseAnswer } from "@/lib/meeting/answer";
 
 interface MarkdownRendererProps {
   children: string;
@@ -14,7 +14,7 @@ export function Markdown({
   children,
   isStreaming = false,
 }: MarkdownRendererProps) {
-  const { text, ungrounded } = splitUngrounded(children);
+  const { text, ungrounded, discrepancies } = parseAnswer(children);
   return (
     <>
       {ungrounded ? <UngroundedBadge /> : null}
@@ -35,7 +35,23 @@ export function Markdown({
       >
         {text}
       </Streamdown>
+      {discrepancies.map((note, index) => (
+        <DiscrepancyNote key={index} note={note} />
+      ))}
     </>
+  );
+}
+
+function DiscrepancyNote({ note }: { note: string }) {
+  return (
+    <p
+      className="not-prose mt-2 flex w-fit items-start gap-1.5 rounded-md border border-sky-500/30 bg-sky-500/10 px-2 py-1 text-[11px] text-sky-800 dark:text-sky-200 select-none"
+      title="Only you see this. Suggested Answers stay consistent with what you said."
+      role="note"
+    >
+      <EyeOffIcon className="mt-0.5 size-3 shrink-0" />
+      <span>{note}</span>
+    </p>
   );
 }
 

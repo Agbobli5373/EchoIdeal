@@ -6,9 +6,19 @@ import "./global.css";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import AppRoutes from "./routes";
 import { retireEchoIdealApiFlag } from "./lib/functions/echoideal.api";
+import { getPlatform } from "./lib/platform";
 
 const currentWindow = getCurrentWindow();
 const windowLabel = currentWindow.label;
+
+// Platform, window and backdrop material, for CSS that differs between them.
+// The dashboard window sets the material before the page loads (window.rs).
+const root = document.documentElement;
+root.dataset.os = getPlatform();
+root.dataset.window = windowLabel;
+root.dataset.material =
+  (window as { __ECHOIDEAL_MATERIAL__?: string }).__ECHOIDEAL_MATERIAL__ ??
+  "none";
 
 // Render different components based on window label
 if (windowLabel.startsWith("capture-overlay-")) {

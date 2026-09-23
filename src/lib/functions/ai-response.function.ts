@@ -84,11 +84,9 @@ async function* fetchEchoIdealAIResponse(params: {
       return;
     }
 
-    // Convert history to the expected format
     let historyString: string | undefined;
     if (history.length > 0) {
-      // Create a copy before reversing to avoid mutating the original array
-      const formattedHistory = [...history].reverse().map((msg) => ({
+      const formattedHistory = history.map((msg) => ({
         role: msg.role,
         content: [{ type: "text", text: msg.content }],
       }));
@@ -187,6 +185,7 @@ export async function* fetchAIResponse(params: {
     variables: Record<string, string>;
   };
   systemPrompt?: string;
+  // Oldest first, each answer directly after its question; every provider path sends it as-is.
   history?: Message[];
   userMessage: string;
   imagesBase64?: string[];

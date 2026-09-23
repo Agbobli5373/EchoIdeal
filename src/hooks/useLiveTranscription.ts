@@ -33,7 +33,8 @@ export const useLiveTranscription = () => {
   const meetingIdRef = useRef<string | null>(null);
   const meetingStartRef = useRef<number>(0);
   const unlistenRefs = useRef<UnlistenFn[]>([]);
-  const isProcessingRef = useRef(false);
+  // Chunks are transcribed one at a time, in the order they were spoken.
+  const queueRef = useRef<Promise<void>>(Promise.resolve());
 
   const getSttProvider = useCallback(() => {
     if (!selectedSttProvider?.provider) return null;
@@ -41,14 +42,13 @@ export const useLiveTranscription = () => {
     return allProviders.find((p) => p.id === selectedSttProvider.provider) || null;
   }, [selectedSttProvider, allSttProviders]);
 
-  const processAudioChunk = useCallback(
-    async (audioBase64: string, speaker: string) => {
-      if (isProcessingRef.current) return;
-      if (!meetingIdRef.current) return;
-
-      isProcessingRef.current = true;
-      const segmentStartMs = Date.now() - meetingStartRef.current;
-
+  const transcribeChunk = useCallback(
+    async (
+      audioBase64: string,
+      speaker: string,
+      meetingId: string,
+      segmentStartMs: number
+    ) => {
       try {
         const binaryString = atob(audioBase64);
         const bytes = new Uint8Array(binaryString.length);
@@ -88,7 +88,7 @@ export const useLiveTranscription = () => {
 
         await addTranscriptSegment({
           id: segment.id,
-          meetingId: meetingIdRef.current!,
+          meetingId,
           speaker: segment.speaker,
           content: segment.content,
           startTimeMs: segment.startTimeMs,
@@ -101,11 +101,21 @@ export const useLiveTranscription = () => {
         setSegmentCount((prev) => prev + 1);
       } catch (err) {
         console.error("Transcription error:", err);
-      } finally {
-        isProcessingRef.current = false;
       }
     },
     [getSttProvider, selectedSttProvider]
+  );
+
+  const processAudioChunk = useCallback(
+    (audioBase64: string, speaker: string) => {
+      const meetingId = meetingIdRef.current;
+      if (!meetingId) return;
+      const segmentStartMs = Date.now() - meetingStartRef.current;
+      queueRef.current = queueRef.current.then(() =>
+        transcribeChunk(audioBase64, speaker, meetingId, segmentStartMs)
+      );
+    },
+    [transcribeChunk]
   );
 
   const startTranscription = useCallback(
@@ -160,6 +170,7 @@ export const useLiveTranscription = () => {
       console.error("Failed to stop capture:", err);
     }
     cleanup();
+    await queueRef.current;
   }, []);
 
   const cleanup = useCallback(() => {

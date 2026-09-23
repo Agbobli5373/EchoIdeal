@@ -5,7 +5,7 @@ import {
   getByPath,
   getStreamingContent,
 } from "./common.function";
-import { Message, TYPE_PROVIDER } from "@/types";
+import { KnowledgeMode, Message, TYPE_PROVIDER } from "@/types";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -14,8 +14,26 @@ import { shouldUseEchoIdealAPI } from "./echoideal.api";
 import { CHUNK_POLL_INTERVAL_MS } from "../chat-constants";
 import { getResponseSettings, RESPONSE_LENGTHS, LANGUAGES } from "@/lib";
 import { MARKDOWN_FORMATTING_INSTRUCTIONS } from "@/config/constants";
+import { getActiveKnowledgeDocuments } from "../database/knowledge.action";
+import {
+  buildKnowledgePrompt,
+  stripUngroundedMarker,
+} from "../knowledge/grounding";
 
-function buildEnhancedSystemPrompt(baseSystemPrompt?: string): string {
+async function buildKnowledgeSection(mode: KnowledgeMode): Promise<string> {
+  if (mode === "none") return "";
+  try {
+    return buildKnowledgePrompt(await getActiveKnowledgeDocuments(), mode);
+  } catch (error) {
+    console.error("Failed to load Active Knowledge:", error);
+    return "";
+  }
+}
+
+function buildEnhancedSystemPrompt(
+  baseSystemPrompt: string | undefined,
+  knowledgeSection: string
+): string {
   const responseSettings = getResponseSettings();
   const prompts: string[] = [];
 
@@ -40,7 +58,8 @@ function buildEnhancedSystemPrompt(baseSystemPrompt?: string): string {
   // Add markdown formatting instructions
   prompts.push(MARKDOWN_FORMATTING_INSTRUCTIONS);
 
-  return prompts.join(" ");
+  const prompt = prompts.join(" ");
+  return knowledgeSection ? `${prompt}\n\n${knowledgeSection}` : prompt;
 }
 
 // EchoIdeal AI streaming function
@@ -172,24 +191,35 @@ export async function* fetchAIResponse(params: {
   userMessage: string;
   imagesBase64?: string[];
   signal?: AbortSignal;
+  // "answer" (default) adds Active Knowledge with grounding rules; "background" adds it
+  // without the Ungrounded marker (e.g. summaries); "none" leaves it out.
+  knowledgeMode?: KnowledgeMode;
 }): AsyncIterable<string> {
   try {
     const {
       provider,
       selectedProvider,
       systemPrompt,
-      history = [],
       userMessage,
       imagesBase64 = [],
       signal,
+      knowledgeMode = "answer",
     } = params;
+    const history = (params.history ?? []).map((msg) =>
+      typeof msg.content === "string"
+        ? { ...msg, content: stripUngroundedMarker(msg.content) }
+        : msg
+    );
 
     // Check if already aborted
     if (signal?.aborted) {
       return;
     }
 
-    const enhancedSystemPrompt = buildEnhancedSystemPrompt(systemPrompt);
+    const enhancedSystemPrompt = buildEnhancedSystemPrompt(
+      systemPrompt,
+      await buildKnowledgeSection(knowledgeMode)
+    );
 
     // Check if we should use EchoIdeal API instead
     const useEchoIdealAPI = await shouldUseEchoIdealAPI();

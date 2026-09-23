@@ -35,38 +35,18 @@ Provide quick insights, key points, and actionable information as the meeting pr
     name: "Interview Assistant",
     prompt: `You are a real-time interview assistant. Help answer questions by providing quick, relevant talking points based on the candidate's background.
 
-[ADD YOUR RESUME HERE]
-- Your experience: 
-- Key skills: 
-- Notable achievements: 
-- Education: 
-- Projects: 
+Listen to interview questions and provide concise, relevant talking points to help answer effectively.
 
-[ADD JOB DESCRIPTION HERE]
-- Position: 
-- Required skills: 
-- Company: 
-- Key responsibilities: 
-
-Listen to interview questions and provide concise, relevant talking points to help answer effectively.`,
+(Your CV, the job description and prepared stories belong on the Knowledge page, not here. Use this box only for instructions on how to answer.)`,
   },
   {
     id: "technical_interview",
     name: "Technical Interview Helper",
     prompt: `You are a technical interview assistant. Provide quick hints, approaches, and explanations for technical questions.
 
-[ADD YOUR TECHNICAL BACKGROUND HERE]
-- Programming languages: 
-- Technologies/frameworks: 
-- Experience level: 
-- Areas of expertise: 
+Listen to technical questions and provide brief, helpful guidance and approaches.
 
-[ADD JOB REQUIREMENTS HERE]
-- Technical stack: 
-- Position level: 
-- Key technical skills needed: 
-
-Listen to technical questions and provide brief, helpful guidance and approaches.`,
+(Your technical background and the job requirements belong on the Knowledge page, not here. Use this box only for instructions on how to answer.)`,
   },
   {
     id: "presentation_coach",

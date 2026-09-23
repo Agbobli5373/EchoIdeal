@@ -6,8 +6,6 @@ import { PostHog } from "tauri-plugin-posthog-api";
 export const ANALYTICS_EVENTS = {
   // App Lifecycle
   APP_STARTED: "app_started",
-  // License Events
-  GET_LICENSE: "get_license",
 } as const;
 
 /**

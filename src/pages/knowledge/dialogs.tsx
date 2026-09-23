@@ -13,6 +13,26 @@ import { AlertTriangle, ShieldIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { estimateTokens } from "@/lib/knowledge";
 
+const EDITOR_COPY = {
+  paste: {
+    title: "Paste text",
+    description:
+      "Paste a CV, job description, prepared story or notes. The AI treats it as facts about you.",
+    action: "Add",
+  },
+  edit: {
+    title: "Edit document",
+    description: "Fix names, dates or any text the file import got wrong.",
+    action: "Save",
+  },
+  recap: {
+    title: "Save Recap as knowledge",
+    description:
+      "Check it says what you actually committed to. It's saved switched off; switch it on in Knowledge before your next round.",
+    action: "Save to Knowledge",
+  },
+};
+
 export const DocumentEditorDialog = ({
   isOpen,
   onOpenChange,
@@ -23,7 +43,7 @@ export const DocumentEditorDialog = ({
 }: {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  mode: "paste" | "edit";
+  mode: "paste" | "edit" | "recap";
   initialName: string;
   initialContent: string;
   onSave: (name: string, content: string) => Promise<boolean>;
@@ -51,12 +71,10 @@ export const DocumentEditorDialog = ({
       <DialogContent className="sm:max-w-[700px] max-h-[85vh] flex flex-col p-0">
         <DialogHeader className="mt-4 px-6 shrink-0">
           <DialogTitle>
-            {mode === "paste" ? "Paste text" : "Edit document"}
+            {EDITOR_COPY[mode].title}
           </DialogTitle>
           <DialogDescription className="mt-1">
-            {mode === "paste"
-              ? "Paste a CV, job description, prepared story or notes. The AI treats it as facts about you."
-              : "Fix names, dates or any text the file import got wrong."}
+            {EDITOR_COPY[mode].description}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-4 px-6 overflow-y-auto flex-1">
@@ -96,7 +114,7 @@ export const DocumentEditorDialog = ({
             onClick={handleSave}
             disabled={!name.trim() || !content.trim() || isSaving}
           >
-            {isSaving ? "Saving..." : mode === "paste" ? "Add" : "Save"}
+            {isSaving ? "Saving..." : EDITOR_COPY[mode].action}
           </Button>
         </DialogFooter>
       </DialogContent>

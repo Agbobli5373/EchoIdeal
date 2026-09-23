@@ -65,6 +65,14 @@ function formatTimer(startMs: number): string {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
+// Both speakers are transcribed independently, so a later-spoken line can finish first.
+function insertInSpokenOrder(
+  segments: TranscriptSegment[],
+  segment: TranscriptSegment
+): TranscriptSegment[] {
+  return [...segments, segment].sort((a, b) => a.startTimeMs - b.startTimeMs);
+}
+
 function buildTranscriptContext(segments: TranscriptSegment[], maxSegments = 30): string {
   const recent = segments.slice(-maxSegments);
   if (recent.length === 0) return "(No transcript yet)";
@@ -151,10 +159,10 @@ const MeetingView = () => {
   }, [meetingId]);
 
   const handleMicTranscription = useCallback(
-    async (text: string) => {
+    async (text: string, spokenAt: number) => {
       if (!meetingId) return;
       const id = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
-      const startTimeMs = Date.now() - meetingStartRef.current;
+      const startTimeMs = spokenAt - meetingStartRef.current;
       const segment: TranscriptSegment = {
         id, meetingId, speaker: "You", content: text,
         startTimeMs, endTimeMs: Date.now() - meetingStartRef.current,
@@ -165,7 +173,7 @@ const MeetingView = () => {
         content: segment.content, startTimeMs: segment.startTimeMs,
         endTimeMs: segment.endTimeMs, confidence: null, isFinal: true,
       });
-      setSegments((prev) => [...prev, segment]);
+      setSegments((prev) => insertInSpokenOrder(prev, segment));
     },
     [meetingId]
   );
@@ -178,12 +186,12 @@ const MeetingView = () => {
 
   useEffect(() => {
     if (lastSegment && meetingId) {
-      setSegments((prev) => [...prev, {
+      setSegments((prev) => insertInSpokenOrder(prev, {
         id: lastSegment.id, meetingId, speaker: lastSegment.speaker,
         content: lastSegment.content, startTimeMs: lastSegment.startTimeMs,
         endTimeMs: lastSegment.endTimeMs, confidence: null, isFinal: true,
         createdAt: Date.now(),
-      }]);
+      }));
     }
   }, [lastSegment, meetingId]);
 
@@ -209,11 +217,13 @@ const MeetingView = () => {
     if (!meetingId) return;
     await stopTranscription();
     await endMeeting(meetingId);
-    if (segments.length > 0) {
+    const finalSegments = await getSegmentsByMeetingId(meetingId);
+    setSegments(finalSegments);
+    if (finalSegments.length > 0) {
       const provider = allAiProviders.find((p) => p.id === selectedAIProvider.provider);
           if (provider) {
         try {
-          const transcript = buildTranscriptContext(segments, 100);
+          const transcript = buildTranscriptContext(finalSegments, 100);
           let summary = "";
           const gen = fetchAIResponse({
             provider, selectedProvider: selectedAIProvider,
@@ -229,7 +239,7 @@ const MeetingView = () => {
     }
     const updated = await getMeetingById(meetingId);
     setMeeting(updated);
-  }, [meetingId, stopTranscription, segments, allAiProviders, selectedAIProvider]);
+  }, [meetingId, stopTranscription, allAiProviders, selectedAIProvider]);
 
   const handleSaveTitle = useCallback(async () => {
     if (!meetingId || !editTitle.trim()) return;

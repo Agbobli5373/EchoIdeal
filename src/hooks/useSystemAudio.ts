@@ -398,9 +398,11 @@ export function useSystemAudio() {
     let updatedMessages = [...conversation.messages];
 
     if (lastTranscription && lastTranscription.trim()) {
-      const lastMessage = updatedMessages[updatedMessages.length - 1];
-      // Only add if it's not already the last message
-      if (!lastMessage || lastMessage.content !== lastTranscription) {
+      const lastUserMessage = [...updatedMessages]
+        .reverse()
+        .find((msg) => msg.role === "user");
+      // Only add if it isn't already the most recent question
+      if (!lastUserMessage || lastUserMessage.content !== lastTranscription) {
         const timestamp = Date.now();
         const userMessage = {
           id: generateMessageId("user", timestamp),
@@ -413,7 +415,7 @@ export function useSystemAudio() {
         // Update conversation state with the latest transcription
         setConversation((prev) => ({
           ...prev,
-          messages: [userMessage, ...prev.messages],
+          messages: [...prev.messages, userMessage],
           updatedAt: timestamp,
           title: prev.title || generateConversationTitle(lastTranscription),
         }));
@@ -522,6 +524,7 @@ export function useSystemAudio() {
           setConversation((prev) => ({
             ...prev,
             messages: [
+              ...prev.messages,
               {
                 id: generateMessageId("user", timestamp),
                 role: "user" as const,
@@ -534,7 +537,6 @@ export function useSystemAudio() {
                 content: fullResponse,
                 timestamp: timestamp + 1,
               },
-              ...prev.messages,
             ],
             updatedAt: timestamp,
             title: prev.title || generateConversationTitle(transcription),

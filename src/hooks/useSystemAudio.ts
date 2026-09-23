@@ -13,12 +13,59 @@ import {
   safeLocalStorage,
   shouldUseEchoIdealAPI,
   generateConversationTitle,
-  saveConversation,
-  CONVERSATION_SAVE_DEBOUNCE_MS,
-  generateConversationId,
   generateMessageId,
 } from "@/lib";
+import {
+  Meeting,
+  MeetingEntryKind,
+  MeetingType,
+  addMeetingEntry,
+  addTranscriptSegment,
+  createMeeting,
+  endMeeting,
+  getActiveMeeting,
+  getMeetingEntries,
+} from "@/lib/database/meetings.action";
+import {
+  activeMeetingStore,
+  generateMeetingSummary,
+  useActiveMeeting,
+  withMeetingInstruction,
+} from "@/lib/meeting";
+import { getScreenshotAnalyzePrompt } from "@/lib/storage/screenshot-analyze.storage";
 import { Message } from "@/types/completion";
+
+const LAST_MEETING_TYPE_KEY = "last_meeting_type";
+
+export interface StartMeetingOptions {
+  type: MeetingType;
+  title: string;
+  rememberAnswers: boolean;
+}
+
+function newSegmentId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+}
+
+function conversationFromEntries(
+  meeting: Meeting,
+  entries: Awaited<ReturnType<typeof getMeetingEntries>>
+): ChatConversation {
+  const messages: ChatMessage[] = entries.flatMap((entry) => {
+    const at = meeting.startedAt + entry.timeMs;
+    return [
+      { id: generateMessageId("user", at), role: "user" as const, content: entry.prompt, timestamp: at },
+      { id: generateMessageId("assistant", at + 1), role: "assistant" as const, content: entry.content, timestamp: at + 1 },
+    ];
+  });
+  return {
+    id: meeting.id,
+    title: meeting.title,
+    messages,
+    createdAt: meeting.startedAt,
+    updatedAt: meeting.updatedAt,
+  };
+}
 
 // VAD Configuration interface matching Rust
 export interface VadConfig {
@@ -98,6 +145,14 @@ export function useSystemAudio() {
   const [useSystemPrompt, setUseSystemPrompt] = useState<boolean>(true);
   const [contextContent, setContextContent] = useState<string>("");
 
+  const activeMeeting = useActiveMeeting();
+  const [isStartPromptOpen, setIsStartPromptOpen] = useState(false);
+  const [pendingResume, setPendingResume] = useState<Meeting | null>(null);
+  const [isEndingMeeting, setIsEndingMeeting] = useState(false);
+  const [isCapturingScreen, setIsCapturingScreen] = useState(false);
+  const lastMeetingType = (safeLocalStorage.getItem(LAST_MEETING_TYPE_KEY) ??
+    "interview") as MeetingType;
+
   const {
     selectedSttProvider,
     allSttProviders,
@@ -107,8 +162,6 @@ export function useSystemAudio() {
     selectedAudioDevices,
   } = useApp();
   const abortControllerRef = useRef<AbortController | null>(null);
-  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const isSavingRef = useRef<boolean>(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   // Load context settings and VAD config from localStorage on mount
@@ -225,6 +278,7 @@ export function useSystemAudio() {
         speechUnlisten = await listen("speech-detected", async (event) => {
           try {
             if (!capturing) return;
+            const spokenAt = Date.now();
 
             const base64Audio = event.payload as string;
             // Convert to blob
@@ -284,10 +338,31 @@ export function useSystemAudio() {
                   return { role: msg.role, content: msg.content };
                 });
 
+                const meeting = activeMeetingStore.get();
+                let segmentId: string | null = null;
+                let timeMs = 0;
+                if (meeting) {
+                  segmentId = newSegmentId();
+                  timeMs = spokenAt - meeting.startedAt;
+                  await addTranscriptSegment({
+                    id: segmentId,
+                    meetingId: meeting.id,
+                    speaker: "Them",
+                    content: transcription.trim(),
+                    startTimeMs: timeMs,
+                    endTimeMs: Date.now() - meeting.startedAt,
+                    confidence: null,
+                    isFinal: true,
+                  }).catch((err) =>
+                    console.error("Failed to save transcript segment:", err)
+                  );
+                }
+
                 await processWithAI(
                   transcription,
                   effectiveSystemPrompt,
-                  previousMessages
+                  previousMessages,
+                  { kind: "suggested_answer", segmentId, timeMs }
                 );
               } else {
                 setError("Received empty transcription");
@@ -426,7 +501,56 @@ export function useSystemAudio() {
       return { role: msg.role, content: msg.content };
     });
 
-    await processWithAI(action, effectiveSystemPrompt, previousMessages);
+    const meeting = activeMeetingStore.get();
+    await processWithAI(action, effectiveSystemPrompt, previousMessages, {
+      kind: "private_request",
+      timeMs: meeting ? Date.now() - meeting.startedAt : 0,
+    });
+  };
+
+  const analyzeScreenCapture = async () => {
+    if (isCapturingScreen) return;
+    setIsCapturingScreen(true);
+    setError("");
+    try {
+      const platform = navigator.platform.toLowerCase();
+      if (platform.includes("mac")) {
+        const {
+          checkScreenRecordingPermission,
+          requestScreenRecordingPermission,
+        } = await import("tauri-plugin-macos-permissions-api");
+        if (!(await checkScreenRecordingPermission())) {
+          await requestScreenRecordingPermission();
+          return;
+        }
+      }
+      const base64: string = await invoke("capture_screenshot", {
+        screenId: null,
+      });
+      const effectiveSystemPrompt = useSystemPrompt
+        ? systemPrompt || DEFAULT_SYSTEM_PROMPT
+        : contextContent || DEFAULT_SYSTEM_PROMPT;
+      const previousMessages = conversation.messages.map((msg) => ({
+        role: msg.role,
+        content: msg.content,
+      }));
+      const meeting = activeMeetingStore.get();
+      await processWithAI(
+        getScreenshotAnalyzePrompt(),
+        effectiveSystemPrompt,
+        previousMessages,
+        {
+          kind: "screen_capture",
+          images: [base64],
+          timeMs: meeting ? Date.now() - meeting.startedAt : 0,
+        }
+      );
+    } catch (err) {
+      console.error("Failed to capture screenshot:", err);
+      setError("Failed to capture screenshot");
+    } finally {
+      setIsCapturingScreen(false);
+    }
   };
 
   // Start continuous recording manually
@@ -474,8 +598,15 @@ export function useSystemAudio() {
     async (
       transcription: string,
       prompt: string,
-      previousMessages: Message[]
+      previousMessages: Message[],
+      entry: {
+        kind: MeetingEntryKind;
+        timeMs: number;
+        segmentId?: string | null;
+        images?: string[];
+      } = { kind: "suggested_answer", timeMs: 0 }
     ) => {
+      const meeting = activeMeetingStore.get();
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
@@ -507,10 +638,10 @@ export function useSystemAudio() {
           for await (const chunk of fetchAIResponse({
             provider: useEchoIdealAPI ? undefined : provider,
             selectedProvider: selectedAIProvider,
-            systemPrompt: prompt,
+            systemPrompt: withMeetingInstruction(prompt, meeting),
             history: previousMessages,
             userMessage: transcription,
-            imagesBase64: [],
+            imagesBase64: entry.images ?? [],
           })) {
             fullResponse += chunk;
             setLastAIResponse((prev) => prev + chunk);
@@ -541,6 +672,20 @@ export function useSystemAudio() {
             updatedAt: timestamp,
             title: prev.title || generateConversationTitle(transcription),
           }));
+
+          if (meeting) {
+            await addMeetingEntry({
+              meetingId: meeting.id,
+              kind: entry.kind,
+              prompt: transcription,
+              content: fullResponse,
+              images: entry.images ?? [],
+              segmentId: entry.segmentId ?? null,
+              timeMs: entry.timeMs,
+            }).catch((err) =>
+              console.error("Failed to save meeting entry:", err)
+            );
+          }
         }
       } catch (err) {
         setError("Failed to get AI response");
@@ -552,7 +697,7 @@ export function useSystemAudio() {
     [selectedAIProvider, allAiProviders, conversation.messages]
   );
 
-  const startCapture = useCallback(async () => {
+  const beginCapture = useCallback(async () => {
     try {
       setError("");
 
@@ -564,16 +709,6 @@ export function useSystemAudio() {
       }
 
       const isContinuous = !vadConfig.enabled;
-
-      // Set up conversation
-      const conversationId = generateConversationId("sysaudio");
-      setConversation({
-        id: conversationId,
-        title: "",
-        messages: [],
-        createdAt: 0,
-        updatedAt: 0,
-      });
 
       setCapturing(true);
       setIsPopoverOpen(true);
@@ -606,6 +741,60 @@ export function useSystemAudio() {
       setIsPopoverOpen(true);
     }
   }, [vadConfig, selectedAudioDevices.output.id]);
+
+  // Starting capture with no Meeting asks for one; with a paused Meeting it resumes it.
+  const startCapture = useCallback(async () => {
+    const meeting = activeMeetingStore.get();
+    if (!meeting) {
+      setIsStartPromptOpen(true);
+      return;
+    }
+    if (meeting.type === "assessment") return;
+    await beginCapture();
+  }, [beginCapture]);
+
+  const startMeeting = useCallback(
+    async ({ type, title, rememberAnswers }: StartMeetingOptions) => {
+      try {
+        const meeting = await createMeeting({
+          id: newSegmentId(),
+          title: title.trim() || undefined,
+          type,
+          rememberAnswers: type !== "assessment" && rememberAnswers,
+        });
+        safeLocalStorage.setItem(LAST_MEETING_TYPE_KEY, type);
+        activeMeetingStore.set(meeting);
+        setConversation({
+          id: meeting.id,
+          title: meeting.title,
+          messages: [],
+          createdAt: meeting.startedAt,
+          updatedAt: meeting.startedAt,
+        });
+        setLastTranscription("");
+        setLastAIResponse("");
+        setIsStartPromptOpen(false);
+        if (type !== "assessment") await beginCapture();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [beginCapture]
+  );
+
+  const resumeMeeting = useCallback(async () => {
+    if (!pendingResume) return;
+    const meeting = pendingResume;
+    try {
+      const entries = await getMeetingEntries(meeting.id);
+      setConversation(conversationFromEntries(meeting, entries));
+      activeMeetingStore.set(meeting);
+      setPendingResume(null);
+      if (meeting.type !== "assessment") await beginCapture();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    }
+  }, [pendingResume, beginCapture]);
 
   const stopCapture = useCallback(async () => {
     try {
@@ -688,7 +877,9 @@ export function useSystemAudio() {
       setupRequired ||
       isAIProcessing ||
       !!lastAIResponse ||
-      !!error;
+      !!error ||
+      isStartPromptOpen ||
+      !!pendingResume;
     setIsPopoverOpen(shouldOpenPopover);
     resizeWindow(shouldOpenPopover);
   }, [
@@ -697,8 +888,19 @@ export function useSystemAudio() {
     isAIProcessing,
     lastAIResponse,
     error,
+    isStartPromptOpen,
+    pendingResume,
     resizeWindow,
   ]);
+
+  // A Meeting left active (e.g. the app quit mid-interview) is offered for resuming.
+  useEffect(() => {
+    getActiveMeeting()
+      .then((meeting) => {
+        if (meeting && !activeMeetingStore.get()) setPendingResume(meeting);
+      })
+      .catch((err) => console.error("Failed to check for an active meeting:", err));
+  }, []);
 
   useEffect(() => {
     globalShortcuts.registerSystemAudioCallback(async () => {
@@ -719,69 +921,61 @@ export function useSystemAudio() {
     };
   }, []);
 
-  // Debounced save to prevent race conditions and improve performance
-  useEffect(() => {
-    // Clear any pending save
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
+  const endActiveMeeting = useCallback(async () => {
+    const meeting = activeMeetingStore.get() ?? pendingResume;
+    if (!meeting) return;
+    setIsEndingMeeting(true);
+    try {
+      if (capturing) await stopCapture();
+      await endMeeting(meeting.id);
+      activeMeetingStore.set(null);
+      setPendingResume(null);
+      setConversation({
+        id: "",
+        title: "",
+        messages: [],
+        createdAt: 0,
+        updatedAt: 0,
+      });
+      setLastTranscription("");
+      setLastAIResponse("");
+
+      const useEchoIdealAPI = await shouldUseEchoIdealAPI();
+      const provider = allAiProviders.find(
+        (p) => p.id === selectedAIProvider.provider
+      );
+      if (provider || useEchoIdealAPI) {
+        await generateMeetingSummary({
+          meeting,
+          provider: useEchoIdealAPI ? undefined : provider,
+          selectedProvider: selectedAIProvider,
+        }).catch((err) => console.error("Failed to generate summary:", err));
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsEndingMeeting(false);
     }
+  }, [pendingResume, capturing, stopCapture, allAiProviders, selectedAIProvider]);
 
-    // Only debounce if there are messages to save
-    if (
-      !conversation.id ||
-      conversation.updatedAt === 0 ||
-      conversation.messages.length === 0
-    ) {
-      return;
-    }
-
-    // Debounce saves (only save 500ms after last change)
-    saveTimeoutRef.current = setTimeout(async () => {
-      // Don't save if already saving (prevent concurrent saves)
-      if (isSavingRef.current) {
-        return;
-      }
-
-      try {
-        isSavingRef.current = true;
-        await saveConversation(conversation);
-      } catch (error) {
-        console.error("Failed to save system audio conversation:", error);
-      } finally {
-        isSavingRef.current = false;
-      }
-    }, CONVERSATION_SAVE_DEBOUNCE_MS);
-
-    // Cleanup on unmount or dependency change
-    return () => {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-      }
-    };
-  }, [
-    conversation.messages.length,
-    conversation.title,
-    conversation.id,
-    conversation.updatedAt,
-  ]);
-
-  const startNewConversation = useCallback(() => {
-    setConversation({
-      id: generateConversationId("sysaudio"),
-      title: "",
-      messages: [],
-      createdAt: 0,
-      updatedAt: 0,
-    });
-    setLastTranscription("");
-    setLastAIResponse("");
-    setError("");
-    setSetupRequired(false);
-    setIsProcessing(false);
-    setIsAIProcessing(false);
-    setIsPopoverOpen(false);
-    setUseSystemPrompt(true);
-  }, []);
+  // The Candidate's own speech is only recorded; it never triggers a Suggested Answer.
+  const recordCandidateSpeech = useCallback(
+    async (text: string, spokenAt: number) => {
+      const meeting = activeMeetingStore.get();
+      if (!meeting) return;
+      await addTranscriptSegment({
+        id: newSegmentId(),
+        meetingId: meeting.id,
+        speaker: "You",
+        content: text,
+        startTimeMs: spokenAt - meeting.startedAt,
+        endTimeMs: Date.now() - meeting.startedAt,
+        confidence: null,
+        isFinal: true,
+      }).catch((err) => console.error("Failed to save Spoken Answer:", err));
+    },
+    []
+  );
 
   // Update VAD configuration
   const updateVadConfiguration = useCallback(async (config: VadConfig) => {
@@ -903,7 +1097,20 @@ export function useSystemAudio() {
     setUseSystemPrompt: updateUseSystemPrompt,
     contextContent,
     setContextContent: updateContextContent,
-    startNewConversation,
+    // Meetings
+    activeMeeting,
+    isStartPromptOpen,
+    setIsStartPromptOpen,
+    lastMeetingType,
+    startMeeting,
+    pendingResume,
+    resumeMeeting,
+    dismissResume: () => setPendingResume(null),
+    endActiveMeeting,
+    isEndingMeeting,
+    recordCandidateSpeech,
+    analyzeScreenCapture,
+    isCapturingScreen,
     // Window resize
     resizeWindow,
     quickActions,

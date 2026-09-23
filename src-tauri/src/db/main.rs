@@ -42,5 +42,11 @@ pub fn migrations() -> Vec<Migration> {
             sql: lf(include_str!("migrations/knowledge.sql")),
             kind: MigrationKind::Up,
         },
+        Migration {
+            version: 5,
+            description: "add_meeting_types_and_entries",
+            sql: lf(include_str!("migrations/meeting-types.sql")),
+            kind: MigrationKind::Up,
+        },
     ]
 }

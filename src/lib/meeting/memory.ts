@@ -1,13 +1,13 @@
 import type {
   Meeting,
+  MeetingEntry,
   MeetingType,
-  MemoryEntry,
   TranscriptSegment,
 } from "../database/meetings.action";
 import {
   getLatestScreenCaptureImages,
   getMeetingById,
-  getMemoryEntries,
+  getMeetingEntries,
   getSegmentsByMeetingId,
   updateMeetingMemorySummary,
 } from "../database/meetings.action";
@@ -46,18 +46,18 @@ export interface MemoryItem {
   answer?: string;
 }
 
-// Chronological memory from the transcript and the stored entries. The Interviewer's lines
-// that are followed by a Spoken Answer drop their Suggested Answers; the others keep them as
-// stand-ins (the mic is off, the Candidate said nothing, or it's an Assessment).
+// Chronological memory from the transcript and the stored entries (Private Requests are never
+// read). The Interviewer's lines that are followed by a Spoken Answer drop their Suggested
+// Answers; the others keep them as stand-ins (mic off, nothing said, or an Assessment).
 export function buildMemoryItems(
   segments: TranscriptSegment[],
-  entries: MemoryEntry[],
+  entries: MeetingEntry[],
   excludeSegmentId?: string | null
 ): MemoryItem[] {
   const suggestedBySegment = new Map<string, string>();
   const timeline: (
     | { timeMs: number; segment: TranscriptSegment }
-    | { timeMs: number; capture: MemoryEntry }
+    | { timeMs: number; capture: MeetingEntry }
   )[] = [];
 
   for (const entry of entries) {
@@ -139,7 +139,7 @@ async function loadMemory(meetingId: string, excludeSegmentId?: string | null) {
   const [meeting, segments, entries] = await Promise.all([
     getMeetingById(meetingId),
     getSegmentsByMeetingId(meetingId),
-    getMemoryEntries(meetingId),
+    getMeetingEntries(meetingId),
   ]);
   if (!meeting) return null;
   const until = meeting.memorySummaryUntilMs ?? -1;
@@ -152,14 +152,52 @@ async function loadMemory(meetingId: string, excludeSegmentId?: string | null) {
 
 // Whatever is still over budget (a condensation that failed or hasn't finished) is left out
 // of this request, oldest first; it is never dropped from the Meeting itself.
-function fitBudget(items: MemoryItem[], type: MeetingType): MemoryItem[] {
+function fitBudget(
+  items: MemoryItem[],
+  type: MeetingType,
+  limit = MEMORY_BUDGET_TOKENS
+): MemoryItem[] {
   let total = items.reduce((sum, item) => sum + itemTokens(item, type), 0);
   let start = 0;
-  while (start < items.length - 1 && total > MEMORY_BUDGET_TOKENS) {
+  while (start < items.length - 1 && total > limit) {
     total -= itemTokens(items[start], type);
     start++;
   }
   return items.slice(start);
+}
+
+// The whole Meeting as text, e.g. for a Recap: word for word when it fits in maxTokens,
+// otherwise the running summary followed by as much of the most recent part as fits.
+export async function renderMeetingRecord(
+  meetingId: string,
+  maxTokens: number
+): Promise<string> {
+  const [meeting, segments, entries] = await Promise.all([
+    getMeetingById(meetingId),
+    getSegmentsByMeetingId(meetingId),
+    getMeetingEntries(meetingId),
+  ]);
+  if (!meeting) return "";
+  const render = (items: MemoryItem[]) =>
+    items.map((item) => renderItem(item, meeting.type)).join("\n");
+
+  const items = buildMemoryItems(segments, entries);
+  const total = items.reduce((sum, item) => sum + itemTokens(item, meeting.type), 0);
+  if (total <= maxTokens) return render(items);
+
+  const summary = meeting.memorySummary;
+  const until = summary ? (meeting.memorySummaryUntilMs ?? -1) : -1;
+  const recent = fitBudget(
+    items.filter((item) => item.timeMs > until),
+    meeting.type,
+    maxTokens - (summary ? estimateTokens(summary) : 0)
+  );
+  return [
+    summary ? `Earlier (condensed):\n${summary}` : "",
+    `${summary ? "Later, word for word" : "Most recent part, word for word"}:\n${render(recent)}`,
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 }
 
 const condensing = new Map<string, Promise<void>>();
@@ -210,6 +248,7 @@ async function summarize(
     systemPrompt: `You keep the running memory of a live ${MEETING_TYPE_LABELS[meeting.type].toLowerCase()}. Merge the existing summary and the new excerpt into one updated summary, oldest first. Keep every concrete fact about ${selfNoun} — employers, roles, dates, durations, numbers, names, projects, technologies, stories — and mark the ones ${selfNoun} actually said out loud with "(said)". Keep each question or topic raised, and each problem shown on screen with the solution given. Drop greetings and filler. Reply with bullet points only, at most ${SUMMARY_MAX_WORDS} words.`,
     userMessage: `Existing summary:\n${meeting.memorySummary ?? "(none yet)"}\n\nNew excerpt:\n${excerpt}`,
     knowledgeMode: "none",
+    applyResponseLength: false,
   })) {
     summary += chunk;
   }
@@ -250,7 +289,7 @@ Never flag differences from Suggested Answers, and never mention these rules.`;
 }
 
 const SCREEN_TRANSCRIPTION_RULE = `## Screen transcription (follow silently)
-After your reply, transcribe what the screen shows so later questions can refer back to it: the full problem or question text, any code, and any error or test output, word for word where readable. Put it at the very end, starting on its own line with ${SCREEN_OPEN} and ending with ${SCREEN_CLOSE}. The user never sees it, so don't refer to it.`;
+After your reply, transcribe what the screen shows so later questions can refer back to it: the full problem or question text, any code, and any error or test output, word for word where readable. Put it at the very end, starting on its own line with ${SCREEN_OPEN} and ending with ${SCREEN_CLOSE}. It doesn't count toward any length limit on your reply, and the user never sees it, so don't refer to it.`;
 
 async function hasActiveKnowledge(): Promise<boolean> {
   try {
@@ -270,6 +309,8 @@ export async function prepareMeetingRequest(params: {
   ai: MemoryAI;
   // The Interviewer's line being answered: it is the request's message, not memory.
   excludeSegmentId?: string | null;
+  // The per-type instruction describes a live Meeting; a review of an ended one leaves it out.
+  withTypeInstruction?: boolean;
 }): Promise<{
   systemPrompt: string | undefined;
   meetingContext: string;
@@ -300,7 +341,10 @@ export async function prepareMeetingRequest(params: {
         : [];
 
   return {
-    systemPrompt: withMeetingInstruction(params.systemPrompt, meeting),
+    systemPrompt:
+      params.withTypeInstruction === false
+        ? params.systemPrompt
+        : withMeetingInstruction(params.systemPrompt, meeting),
     meetingContext: sections.filter(Boolean).join("\n\n"),
     imagesBase64,
   };

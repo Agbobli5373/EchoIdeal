@@ -5,25 +5,45 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Meeting,
+  MeetingEntry,
   TranscriptSegment,
   getMeetingById,
   getSegmentsByMeetingId,
+  getMeetingEntries,
+  addMeetingEntry,
   endMeeting,
   updateMeetingTitle,
+  updateMeetingSpeakerNames,
   addTranscriptSegment,
 } from "@/lib/database/meetings.action";
+import { createKnowledgeDocument } from "@/lib/database/knowledge.action";
 import { TranscriptSegmentItem } from "./TranscriptSegmentItem";
+import {
+  DiscrepancyList,
+  ScreenCaptureCard,
+  SuggestedAnswerCard,
+} from "./ReviewItems";
 import { MicTranscriber } from "./MicTranscriber";
 import { useLiveTranscription } from "@/hooks/useLiveTranscription";
-import { fetchAIResponse } from "@/lib/functions/ai-response.function";
 import {
-  buildTranscriptContext,
+  fetchAIResponse,
+  isAIErrorText,
+} from "@/lib/functions/ai-response.function";
+import { shouldUseEchoIdealAPI } from "@/lib/functions/echoideal.api";
+import {
+  MEETING_TYPE_LABELS,
+  MemoryAI,
+  canSaveRecap,
   generateMeetingSummary,
+  generateRecap,
+  prepareMeetingRequest,
   speakerLabel,
 } from "@/lib/meeting";
+import { DocumentEditorDialog } from "@/pages/knowledge/dialogs";
 import { useApp } from "@/contexts";
 import {
   ArrowLeftIcon,
+  BookPlusIcon,
   ClockIcon,
   FileTextIcon,
   MessageSquareIcon,
@@ -88,10 +108,50 @@ Be concise and actionable. Reference specific parts of the transcript when relev
 
 Format replies in Markdown when helpful (headings, bullets, code blocks).`;
 
+const REVIEW_SYSTEM_PROMPT = `You help the user review a meeting that has ended, using its Meeting Memory below. Answer questions about what was said, shown and suggested, point out what went well or could be improved, and help prepare for what comes next.
+
+Be concise and specific, and quote the Meeting when relevant. Format replies in Markdown when helpful (headings, bullets, code blocks).`;
+
 interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
+}
+
+// This page's chat is the Meeting's Private Requests (typed here or in the overlay).
+function chatFromEntries(entries: MeetingEntry[]): ChatMessage[] {
+  return entries
+    .filter((entry) => entry.kind === "private_request")
+    .flatMap((entry) => [
+      { id: `u-${entry.id}`, role: "user" as const, content: entry.prompt },
+      { id: `a-${entry.id}`, role: "assistant" as const, content: entry.content },
+    ]);
+}
+
+type TimelineItem =
+  | { kind: "segment"; timeMs: number; segment: TranscriptSegment; answer?: MeetingEntry }
+  | { kind: "capture"; timeMs: number; entry: MeetingEntry };
+
+// The transcript with each Suggested Answer under the line it answered, and Screen Captures
+// where they were taken.
+function buildTimeline(segments: TranscriptSegment[], entries: MeetingEntry[]): TimelineItem[] {
+  const answers = new Map(
+    entries
+      .filter((entry) => entry.kind === "suggested_answer" && entry.segmentId)
+      .map((entry) => [entry.segmentId as string, entry])
+  );
+  const items: TimelineItem[] = [
+    ...segments.map((segment) => ({
+      kind: "segment" as const,
+      timeMs: segment.startTimeMs,
+      segment,
+      answer: answers.get(segment.id),
+    })),
+    ...entries
+      .filter((entry) => entry.kind === "screen_capture")
+      .map((entry) => ({ kind: "capture" as const, timeMs: entry.timeMs, entry })),
+  ];
+  return items.sort((a, b) => a.timeMs - b.timeMs);
 }
 
 const QUICK_ACTIONS = [
@@ -108,6 +168,7 @@ const MeetingView = () => {
 
   const [meeting, setMeeting] = useState<Meeting | null>(null);
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
+  const [entries, setEntries] = useState<MeetingEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [timer, setTimer] = useState("00:00");
   const [speakerNames, setSpeakerNames] = useState<Record<string, string>>({
@@ -124,7 +185,13 @@ const MeetingView = () => {
   const [chatInput, setChatInput] = useState("");
   const [isAiLoading, setIsAiLoading] = useState(false);
 
+  // Recap ("Save as knowledge")
+  const [isWritingRecap, setIsWritingRecap] = useState(false);
+  const [recapDraft, setRecapDraft] = useState<{ name: string; content: string } | null>(null);
+  const [recapMessage, setRecapMessage] = useState<{ saved: boolean; text: string } | null>(null);
+
   const scrollRef = useRef<HTMLDivElement>(null);
+  const speakerNamesLoadedRef = useRef(false);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef(true);
   const meetingStartRef = useRef(0);
@@ -146,17 +213,47 @@ const MeetingView = () => {
       if (m) {
         meetingStartRef.current = m.startedAt;
         setEditTitle(m.title);
+        speakerNamesLoadedRef.current = false;
         setSpeakerNames({
           You: speakerLabel("You", m.type),
           Them: speakerLabel("Them", m.type),
+          ...(m.speakerNames ?? {}),
         });
-        const segs = await getSegmentsByMeetingId(meetingId);
+        const [segs, meetingEntries] = await Promise.all([
+          getSegmentsByMeetingId(meetingId),
+          getMeetingEntries(meetingId),
+        ]);
         setSegments(segs);
+        setEntries(meetingEntries);
+        setChatMessages(chatFromEntries(meetingEntries));
       }
       setIsLoading(false);
     };
     load();
   }, [meetingId]);
+
+  // Speaker renames are saved with the Meeting (after the initial load sets them).
+  useEffect(() => {
+    if (!meetingId || isLoading) return;
+    if (!speakerNamesLoadedRef.current) {
+      speakerNamesLoadedRef.current = true;
+      return;
+    }
+    const timeout = setTimeout(() => {
+      updateMeetingSpeakerNames(meetingId, speakerNames).catch((err) =>
+        console.error("Failed to save speaker names:", err)
+      );
+    }, 400);
+    return () => clearTimeout(timeout);
+  }, [meetingId, isLoading, speakerNames]);
+
+  const resolveAI = useCallback(async (): Promise<MemoryAI | null> => {
+    if (await shouldUseEchoIdealAPI()) {
+      return { provider: undefined, selectedProvider: selectedAIProvider };
+    }
+    const provider = allAiProviders.find((p) => p.id === selectedAIProvider.provider);
+    return provider ? { provider, selectedProvider: selectedAIProvider } : null;
+  }, [allAiProviders, selectedAIProvider]);
 
   const handleMicTranscription = useCallback(
     async (text: string, spokenAt: number) => {
@@ -195,12 +292,13 @@ const MeetingView = () => {
     }
   }, [lastSegment, meetingId]);
 
+  // A live transcript follows the latest line; a review starts at the top.
   useEffect(() => {
-    if (autoScrollRef.current && scrollRef.current) {
+    if (meeting?.status === "active" && autoScrollRef.current && scrollRef.current) {
       const el = scrollRef.current;
       requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
     }
-  }, [segments]);
+  }, [segments, meeting?.status]);
 
   useEffect(() => {
     if (chatScrollRef.current) {
@@ -218,17 +316,18 @@ const MeetingView = () => {
     await stopTranscription();
     await endMeeting(meetingId);
     setSegments(await getSegmentsByMeetingId(meetingId));
-    const provider = allAiProviders.find((p) => p.id === selectedAIProvider.provider);
-    if (provider && meeting) {
+    setEntries(await getMeetingEntries(meetingId));
+    const ai = await resolveAI();
+    if (ai && meeting) {
       await generateMeetingSummary({
         meeting,
-        provider,
-        selectedProvider: selectedAIProvider,
+        provider: ai.provider,
+        selectedProvider: ai.selectedProvider,
       }).catch((err) => console.error("Failed to generate summary:", err));
     }
     const updated = await getMeetingById(meetingId);
     setMeeting(updated);
-  }, [meetingId, meeting, stopTranscription, allAiProviders, selectedAIProvider]);
+  }, [meetingId, meeting, stopTranscription, resolveAI]);
 
   const handleSaveTitle = useCallback(async () => {
     if (!meetingId || !editTitle.trim()) return;
@@ -244,35 +343,63 @@ const MeetingView = () => {
     }
   }, []);
 
+  // A Private Request: it gets Active Knowledge and Meeting Memory, is saved with the Meeting,
+  // and is never added to Meeting Memory.
   const sendChatMessage = useCallback(async (message: string) => {
-    if (!message.trim() || isAiLoading) return;
-    const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: "user", content: message.trim() };
+    const text = message.trim();
+    if (!text || isAiLoading || !meeting) return;
+    const userMsg: ChatMessage = { id: `u-${Date.now()}`, role: "user", content: text };
     setChatMessages((prev) => [...prev, userMsg]);
     setChatInput("");
     setIsAiLoading(true);
 
-    const provider = allAiProviders.find((p) => p.id === selectedAIProvider.provider);
-    if (!provider) {
+    const ai = await resolveAI();
+    if (!ai) {
       setChatMessages((prev) => [...prev, { id: `e-${Date.now()}`, role: "assistant", content: "Please configure an AI provider in Dev Space to use meeting chat." }]);
       setIsAiLoading(false);
       return;
     }
 
-    const transcript = buildTranscriptContext(segments, meeting?.type);
-    const contextPrompt = `${MEETING_SYSTEM_PROMPT}\n\nCurrent meeting transcript:\n${transcript}`;
     const assistantId = `a-${Date.now()}`;
     setChatMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "" }]);
 
     try {
-      const history = chatMessages.map((m) => ({ id: m.id, role: m.role as "user" | "assistant", content: m.content, timestamp: Date.now() }));
-      const gen = fetchAIResponse({
-        provider, selectedProvider: selectedAIProvider, systemPrompt: contextPrompt,
-        userMessage: message.trim(), history,
+      const isLive = meeting.status === "active";
+      const request = await prepareMeetingRequest({
+        meeting,
+        systemPrompt: isLive ? MEETING_SYSTEM_PROMPT : REVIEW_SYSTEM_PROMPT,
+        images: [],
+        ai,
+        withTypeInstruction: isLive,
       });
-      for await (const chunk of gen) {
+      // Memory carries the Meeting; only the last few chat turns go along as history.
+      const history = chatMessages.slice(-6).map((m) => ({ role: m.role, content: m.content }));
+      let fullResponse = "";
+      for await (const chunk of fetchAIResponse({
+        provider: ai.provider,
+        selectedProvider: ai.selectedProvider,
+        systemPrompt: request.systemPrompt,
+        meetingContext: request.meetingContext,
+        history,
+        userMessage: text,
+        imagesBase64: request.imagesBase64,
+      })) {
+        fullResponse += chunk;
         setChatMessages((prev) => prev.map((m) =>
           m.id === assistantId ? { ...m, content: m.content + chunk } : m
         ));
+      }
+      if (fullResponse && !isAIErrorText(fullResponse)) {
+        const saved = await addMeetingEntry({
+          meetingId: meeting.id,
+          kind: "private_request",
+          prompt: text,
+          content: fullResponse,
+          images: [],
+          segmentId: null,
+          timeMs: Date.now() - meeting.startedAt,
+        });
+        setEntries((prev) => [...prev, saved]);
       }
     } catch (err) {
       setChatMessages((prev) => prev.map((m) =>
@@ -281,7 +408,37 @@ const MeetingView = () => {
     } finally {
       setIsAiLoading(false);
     }
-  }, [isAiLoading, allAiProviders, selectedAIProvider, segments, chatMessages]);
+  }, [isAiLoading, meeting, resolveAI, chatMessages]);
+
+  const handleWriteRecap = useCallback(async () => {
+    if (!meeting || isWritingRecap) return;
+    setRecapMessage(null);
+    const ai = await resolveAI();
+    if (!ai) {
+      setRecapMessage({ saved: false, text: "Configure an AI provider in Dev Space to write a Recap." });
+      return;
+    }
+    setIsWritingRecap(true);
+    try {
+      setRecapDraft(await generateRecap(meeting, ai));
+    } catch (err) {
+      setRecapMessage({ saved: false, text: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setIsWritingRecap(false);
+    }
+  }, [meeting, isWritingRecap, resolveAI]);
+
+  // Recaps are saved switched off, like any new Knowledge Document.
+  const handleSaveRecap = useCallback(async (name: string, content: string) => {
+    try {
+      const doc = await createKnowledgeDocument({ name, source_type: "markdown", content });
+      setRecapMessage({ saved: true, text: `Saved “${doc.name}” to Knowledge, switched off.` });
+      return true;
+    } catch (err) {
+      setRecapMessage({ saved: false, text: err instanceof Error ? err.message : String(err) });
+      return false;
+    }
+  }, []);
 
   if (isLoading) {
     return (
@@ -302,6 +459,7 @@ const MeetingView = () => {
 
   const isActive = meeting.status === "active";
   const uniqueSpeakers = [...new Set(segments.map((s) => s.speaker))];
+  const timeline = buildTimeline(segments, entries);
 
   return (
     <div className="flex flex-1 flex-col">
@@ -381,7 +539,41 @@ const MeetingView = () => {
               </Button>
             </div>
           )}
+
+          {canSaveRecap(meeting) && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleWriteRecap}
+              disabled={isWritingRecap}
+              className="gap-1.5 shrink-0"
+              title={`Write a Recap of this ${MEETING_TYPE_LABELS[meeting.type].toLowerCase()} to use in your next round`}
+            >
+              {isWritingRecap ? (
+                <Loader2Icon className="size-3 animate-spin" />
+              ) : (
+                <BookPlusIcon className="size-3" />
+              )}
+              {isWritingRecap ? "Writing Recap…" : "Save as knowledge"}
+            </Button>
+          )}
         </div>
+
+        {recapMessage && (
+          <div
+            className={`mx-11 mt-2 flex items-center gap-2 px-3 py-2 rounded-lg text-xs ${
+              recapMessage.saved ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : "bg-destructive/10 text-destructive"
+            }`}
+            role="status"
+          >
+            <span className="flex-1">{recapMessage.text}</span>
+            {recapMessage.saved && (
+              <Button variant="ghost" size="sm" className="h-6 text-[11px]" onClick={() => navigate("/knowledge")}>
+                Open Knowledge
+              </Button>
+            )}
+          </div>
+        )}
 
         {transcriptionError && (
           <div className="mx-11 mt-2 px-3 py-2 rounded-lg bg-destructive/10 text-destructive text-xs">{transcriptionError}</div>
@@ -443,7 +635,7 @@ const MeetingView = () => {
               setShowScrollButton(!atBottom && segments.length > 5);
             }}
           >
-            {segments.length === 0 ? (
+            {timeline.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-3">
                 <div className="flex size-12 items-center justify-center rounded-xl bg-muted">
                   <FileTextIcon className="size-6 opacity-40" />
@@ -460,12 +652,13 @@ const MeetingView = () => {
               </div>
             ) : (
               <div className="flex flex-col py-2">
-                {segments.map((seg, i) => {
-                  const prevSeg = i > 0 ? segments[i - 1] : null;
-                  const showTimeDivider = !prevSeg || (seg.startTimeMs - prevSeg.startTimeMs > 60000);
-                  const elapsedMin = Math.floor(seg.startTimeMs / 60000);
+                <DiscrepancyList entries={entries} />
+                {timeline.map((item, i) => {
+                  const prev = i > 0 ? timeline[i - 1] : null;
+                  const showTimeDivider = !prev || (item.timeMs - prev.timeMs > 60000);
+                  const elapsedMin = Math.floor(item.timeMs / 60000);
                   return (
-                    <div key={seg.id}>
+                    <div key={item.kind === "segment" ? item.segment.id : item.entry.id}>
                       {showTimeDivider && (
                         <div className="flex items-center gap-3 py-2 mt-1">
                           <div className="flex-1 h-px bg-border/30" />
@@ -473,7 +666,17 @@ const MeetingView = () => {
                           <div className="flex-1 h-px bg-border/30" />
                         </div>
                       )}
-                      <TranscriptSegmentItem segment={{ ...seg, speaker: speakerNames[seg.speaker] || seg.speaker }} />
+                      {item.kind === "segment" ? (
+                        <>
+                          <TranscriptSegmentItem
+                            segment={item.segment}
+                            label={speakerNames[item.segment.speaker] || item.segment.speaker}
+                          />
+                          {item.answer && <SuggestedAnswerCard entry={item.answer} />}
+                        </>
+                      ) : (
+                        <ScreenCaptureCard entry={item.entry} />
+                      )}
                     </div>
                   );
                 })}
@@ -604,6 +807,15 @@ const MeetingView = () => {
           </ScrollArea>
         </TabsContent>
       </Tabs>
+
+      <DocumentEditorDialog
+        isOpen={!!recapDraft}
+        onOpenChange={(open) => !open && setRecapDraft(null)}
+        mode="recap"
+        initialName={recapDraft?.name ?? ""}
+        initialContent={recapDraft?.content ?? ""}
+        onSave={handleSaveRecap}
+      />
     </div>
   );
 };

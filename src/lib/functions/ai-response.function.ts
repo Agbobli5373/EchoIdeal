@@ -45,7 +45,8 @@ async function buildKnowledgeSection(mode: KnowledgeMode): Promise<string> {
 function buildEnhancedSystemPrompt(
   baseSystemPrompt: string | undefined,
   knowledgeSection: string,
-  meetingContext: string | undefined
+  meetingContext: string | undefined,
+  applyResponseLength: boolean
 ): string {
   const responseSettings = getResponseSettings();
   const prompts: string[] = [];
@@ -57,7 +58,7 @@ function buildEnhancedSystemPrompt(
   const lengthOption = RESPONSE_LENGTHS.find(
     (l) => l.id === responseSettings.responseLength
   );
-  if (lengthOption?.prompt?.trim()) {
+  if (applyResponseLength && lengthOption?.prompt?.trim()) {
     prompts.push(lengthOption.prompt);
   }
 
@@ -209,6 +210,9 @@ export async function* fetchAIResponse(params: {
   knowledgeMode?: KnowledgeMode;
   // Meeting Memory and per-request Meeting rules, placed after Active Knowledge.
   meetingContext?: string;
+  // false for calls that write a document (summaries, Recaps) rather than an answer: the
+  // user's response-length setting ("2-4 sentences") would cut them short.
+  applyResponseLength?: boolean;
 }): AsyncIterable<string> {
   try {
     const {
@@ -220,6 +224,7 @@ export async function* fetchAIResponse(params: {
       signal,
       knowledgeMode = "answer",
       meetingContext,
+      applyResponseLength = true,
     } = params;
     const history = (params.history ?? []).map((msg) =>
       typeof msg.content === "string"
@@ -235,7 +240,8 @@ export async function* fetchAIResponse(params: {
     const enhancedSystemPrompt = buildEnhancedSystemPrompt(
       systemPrompt,
       await buildKnowledgeSection(knowledgeMode),
-      meetingContext
+      meetingContext,
+      applyResponseLength
     );
 
     // Check if we should use EchoIdeal API instead

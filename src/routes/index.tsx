@@ -1,6 +1,5 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import {
-  Dashboard,
   App,
   SystemPrompts,
   Knowledge,
@@ -23,7 +22,7 @@ export default function AppRoutes() {
       <Routes>
         <Route path="/" element={<App />} />
         <Route element={<DashboardLayout />}>
-          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/dashboard" element={<Navigate to="/chats" replace />} />
           <Route path="/chats" element={<Chats />} />
           <Route path="/meetings" element={<Meetings />} />
           <Route path="/meetings/:meetingId" element={<MeetingView />} />

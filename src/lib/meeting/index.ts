@@ -11,6 +11,7 @@ import { speakerLabel } from "./meeting-type";
 export * from "./meeting-type";
 export * from "./answer";
 export * from "./memory";
+export * from "./recap";
 
 // The Meeting the overlay window is running (started or resumed there). Paused Meetings stay active.
 let activeMeeting: Meeting | null = null;
@@ -65,6 +66,7 @@ export async function generateMeetingSummary(params: {
     systemPrompt: SUMMARY_PROMPT,
     userMessage: `Summarize this meeting transcript:\n\n${transcript}`,
     knowledgeMode: "background",
+    applyResponseLength: false,
   })) {
     summary += chunk;
   }

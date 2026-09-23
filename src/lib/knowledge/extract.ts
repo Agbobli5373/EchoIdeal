@@ -126,6 +126,7 @@ export async function transcribeImageWithProvider(params: {
     userMessage: "Transcribe this image.",
     imagesBase64: [params.base64],
     knowledgeMode: "none",
+    applyResponseLength: false,
   })) {
     text += chunk;
   }

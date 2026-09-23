@@ -15,6 +15,8 @@ export interface Meeting {
   // everything up to memorySummaryUntilMs (time into the Meeting).
   memorySummary: string | null;
   memorySummaryUntilMs: number | null;
+  // Display names chosen in the review view, keyed by the stored speaker ("You" / "Them").
+  speakerNames: Record<string, string> | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -24,22 +26,20 @@ export type MeetingEntryKind =
   | "private_request"
   | "screen_capture";
 
+// Entries are read without their images (base64, ~1 MB each); see getMeetingEntryImages.
 export interface MeetingEntry {
   id: string;
   meetingId: string;
   kind: MeetingEntryKind;
   prompt: string;
   content: string;
-  images: string[];
+  hasImages: boolean;
   // Screen Captures only: what was on screen, transcribed by the call that answered it.
   screenText: string | null;
   segmentId: string | null;
   timeMs: number;
   createdAt: number;
 }
-
-// An entry as Meeting Memory reads it: without the (large) images.
-export type MemoryEntry = Omit<MeetingEntry, "images">;
 
 export interface TranscriptSegment {
   id: string;
@@ -64,6 +64,7 @@ interface DbMeeting {
   summary: string | null;
   memory_summary: string | null;
   memory_summary_until_ms: number | null;
+  speaker_names: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -86,20 +87,21 @@ interface DbMeetingEntry {
   kind: string;
   prompt: string;
   content: string;
-  images?: string | null;
+  has_images: number;
   screen_text: string | null;
   segment_id: string | null;
   time_ms: number;
   created_at: number;
 }
 
-function mapDbMemoryEntry(row: DbMeetingEntry): MemoryEntry {
+function mapDbEntry(row: DbMeetingEntry): MeetingEntry {
   return {
     id: row.id,
     meetingId: row.meeting_id,
     kind: row.kind as MeetingEntryKind,
     prompt: row.prompt,
     content: row.content,
+    hasImages: row.has_images === 1,
     screenText: row.screen_text,
     segmentId: row.segment_id,
     timeMs: row.time_ms,
@@ -119,6 +121,7 @@ function mapDbMeeting(row: DbMeeting): Meeting {
     summary: row.summary,
     memorySummary: row.memory_summary,
     memorySummaryUntilMs: row.memory_summary_until_ms,
+    speakerNames: row.speaker_names ? JSON.parse(row.speaker_names) : null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -166,6 +169,7 @@ export async function createMeeting(meeting: {
     summary: null,
     memorySummary: null,
     memorySummaryUntilMs: null,
+    speakerNames: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -200,6 +204,17 @@ export async function updateMeetingSummary(
     "UPDATE meetings SET summary = ?, updated_at = ? WHERE id = ?",
     [summary, Date.now(), id]
   );
+}
+
+export async function updateMeetingSpeakerNames(
+  id: string,
+  speakerNames: Record<string, string>
+): Promise<void> {
+  const db = await getDatabase();
+  await db.execute("UPDATE meetings SET speaker_names = ? WHERE id = ?", [
+    JSON.stringify(speakerNames),
+    id,
+  ]);
 }
 
 export async function updateMeetingMemorySummary(
@@ -299,7 +314,8 @@ export async function deleteAllMeetings(): Promise<void> {
 }
 
 export async function addMeetingEntry(
-  entry: Omit<MeetingEntry, "id" | "createdAt" | "screenText"> & {
+  entry: Omit<MeetingEntry, "id" | "createdAt" | "screenText" | "hasImages"> & {
+    images: string[];
     screenText?: string | null;
   }
 ): Promise<MeetingEntry> {
@@ -326,7 +342,8 @@ export async function addMeetingEntry(
     now,
     entry.meetingId,
   ]);
-  return { ...entry, screenText, id, createdAt: now };
+  const { images, ...rest } = entry;
+  return { ...rest, hasImages: images.length > 0, screenText, id, createdAt: now };
 }
 
 export async function getMeetingEntries(
@@ -334,25 +351,19 @@ export async function getMeetingEntries(
 ): Promise<MeetingEntry[]> {
   const db = await getDatabase();
   const rows = await db.select<DbMeetingEntry[]>(
-    "SELECT * FROM meeting_entries WHERE meeting_id = ? ORDER BY time_ms ASC, created_at ASC",
+    "SELECT id, meeting_id, kind, prompt, content, images IS NOT NULL AS has_images, screen_text, segment_id, time_ms, created_at FROM meeting_entries WHERE meeting_id = ? ORDER BY time_ms ASC, created_at ASC",
     [meetingId]
   );
-  return rows.map((row) => ({
-    ...mapDbMemoryEntry(row),
-    images: row.images ? JSON.parse(row.images) : [],
-  }));
+  return rows.map(mapDbEntry);
 }
 
-// Everything Meeting Memory draws on: Suggested Answers and Screen Captures, never Private Requests.
-export async function getMemoryEntries(
-  meetingId: string
-): Promise<MemoryEntry[]> {
+export async function getMeetingEntryImages(entryId: string): Promise<string[]> {
   const db = await getDatabase();
-  const rows = await db.select<DbMeetingEntry[]>(
-    "SELECT id, meeting_id, kind, prompt, content, screen_text, segment_id, time_ms, created_at FROM meeting_entries WHERE meeting_id = ? AND kind != 'private_request' ORDER BY time_ms ASC, created_at ASC",
-    [meetingId]
+  const rows = await db.select<{ images: string | null }[]>(
+    "SELECT images FROM meeting_entries WHERE id = ?",
+    [entryId]
   );
-  return rows.map(mapDbMemoryEntry);
+  return rows[0]?.images ? JSON.parse(rows[0].images) : [];
 }
 
 export async function getLatestScreenCaptureImages(

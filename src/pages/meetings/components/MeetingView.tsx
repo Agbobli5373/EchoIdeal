@@ -220,6 +220,7 @@ const MeetingView = () => {
             systemPrompt:
               "You are a meeting summarizer. Return Markdown with the following sections as headings:\n\n## Overview\n## Key Topics\n## Decisions Made\n## Action Items\n## Follow-up Questions\n\nUse bullet lists where appropriate. Be concise and specific.",
             userMessage: `Summarize this meeting transcript:\n\n${transcript}`,
+            knowledgeMode: "background",
           });
           for await (const chunk of gen) { summary += chunk; }
           if (summary) await updateMeetingSummary(meetingId, summary);

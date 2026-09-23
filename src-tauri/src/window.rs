@@ -1,5 +1,11 @@
 #[cfg(target_os = "macos")]
 use tauri::LogicalPosition;
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+use tauri::window::{Effect, EffectsBuilder};
+#[cfg(target_os = "windows")]
+use windows::Win32::UI::Input::KeyboardAndMouse::{
+    VIRTUAL_KEY, VK_ESCAPE, VK_LWIN, VK_MENU, VK_Z,
+};
 use tauri::{App, AppHandle, Manager, Runtime, WebviewWindow, WebviewWindowBuilder};
 
 // The offset from the top of the screen to the window
@@ -108,20 +114,15 @@ pub fn open_dashboard(app: tauri::AppHandle) -> Result<(), String> {
 pub fn toggle_dashboard(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(dashboard_window) = app.get_webview_window("dashboard") {
         match dashboard_window.is_visible() {
-            Ok(true) => {
-                // Window is visible, hide it
+            Ok(true) if !dashboard_window.is_minimized().unwrap_or(false) => {
+                // Window is on screen, hide it
                 dashboard_window
                     .hide()
                     .map_err(|e| format!("Failed to hide dashboard window: {}", e))?;
             }
-            Ok(false) => {
-                // Window is hidden, show and focus it
-                dashboard_window
-                    .show()
-                    .map_err(|e| format!("Failed to show dashboard window: {}", e))?;
-                dashboard_window
-                    .set_focus()
-                    .map_err(|e| format!("Failed to focus dashboard window: {}", e))?;
+            Ok(_) => {
+                // Window is hidden or minimised, show and focus it
+                show_dashboard_window(&app)?;
             }
             Err(e) => {
                 return Err(format!("Failed to check dashboard visibility: {}", e));
@@ -163,34 +164,75 @@ pub fn move_window(app: tauri::AppHandle, direction: String, step: i32) -> Resul
     Ok(())
 }
 
+/// The backdrop material behind the dashboard's title bar and sidebar: Mica on
+/// Windows 11, vibrancy on macOS, and none (opaque surfaces) everywhere else.
+fn dashboard_material() -> &'static str {
+    #[cfg(target_os = "macos")]
+    return "vibrancy";
+
+    #[cfg(target_os = "windows")]
+    if is_windows_11() {
+        return "mica";
+    }
+
+    #[allow(unreachable_code)]
+    "none"
+}
+
+#[cfg(target_os = "windows")]
+fn is_windows_11() -> bool {
+    use windows::Wdk::System::SystemServices::RtlGetVersion;
+    use windows::Win32::System::SystemInformation::OSVERSIONINFOW;
+
+    let mut info = OSVERSIONINFOW {
+        dwOSVersionInfoSize: std::mem::size_of::<OSVERSIONINFOW>() as u32,
+        ..Default::default()
+    };
+    // RtlGetVersion reports the real build, unlike GetVersionEx.
+    unsafe { RtlGetVersion(&mut info) }.is_ok() && info.dwBuildNumber >= 22000
+}
+
 pub fn create_dashboard_window<R: Runtime>(
     app: &AppHandle<R>,
 ) -> Result<WebviewWindow<R>, tauri::Error> {
+    let material = dashboard_material();
     let base_builder =
-        WebviewWindowBuilder::new(app, "dashboard", tauri::WebviewUrl::App("/chats".into()));
+        WebviewWindowBuilder::new(app, "dashboard", tauri::WebviewUrl::App("/chats".into()))
+            .title("EchoIdeal - Dashboard")
+            .center()
+            .inner_size(1100.0, 720.0)
+            .min_inner_size(880.0, 600.0)
+            .content_protected(true)
+            // The page reads this before first paint to choose see-through or opaque surfaces.
+            .initialization_script(format!("window.__ECHOIDEAL_MATERIAL__ = \"{}\";", material));
 
     #[cfg(target_os = "macos")]
     let base_builder = base_builder
-        .title("EchoIdeal - Dashboard")
-        .center()
         .decorations(true)
-        .inner_size(1200.0, 800.0)
-        .min_inner_size(800.0, 600.0)
         .hidden_title(true)
         .title_bar_style(tauri::TitleBarStyle::Overlay)
-        .content_protected(true)
+        .transparent(true)
+        .effects(EffectsBuilder::new().effect(Effect::Sidebar).build())
         .visible(true)
-        .traffic_light_position(LogicalPosition::new(14.0, 18.0));
+        // Centres the traffic lights in the 52px toolbar row.
+        .traffic_light_position(LogicalPosition::new(20.0, 26.0));
 
+    // Windows and Linux draw their own title bar in the page. The shadow gives
+    // Windows 11 its rounded corners and border on a frameless window.
     #[cfg(not(target_os = "macos"))]
     let base_builder = base_builder
-        .title("EchoIdeal - Dashboard")
-        .center()
-        .decorations(true)
-        .inner_size(800.0, 600.0)
-        .min_inner_size(800.0, 600.0)
-        .content_protected(true)
+        .decorations(false)
+        .shadow(true)
         .visible(false);
+
+    #[cfg(target_os = "windows")]
+    let base_builder = if material == "mica" {
+        base_builder
+            .transparent(true)
+            .effects(EffectsBuilder::new().effect(Effect::Mica).build())
+    } else {
+        base_builder
+    };
 
     let window = base_builder.build()?;
 
@@ -198,6 +240,54 @@ pub fn create_dashboard_window<R: Runtime>(
     setup_dashboard_close_handler(&window);
 
     Ok(window)
+}
+
+/// Opens Windows 11's Snap Layouts flyout for the focused window with Win+Z.
+/// The page's own maximise button calls this on hover, since a button drawn in
+/// HTML doesn't get the flyout that the native one does.
+#[tauri::command]
+pub async fn show_snap_layouts() {
+    #[cfg(target_os = "windows")]
+    {
+        send_keys(&[VK_LWIN, VK_Z]);
+        // Opened from the keyboard, the flyout numbers its layouts; once it's
+        // up, Alt hides the numbers so it looks as it does on hover.
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+        send_keys(&[VK_MENU]);
+    }
+}
+
+/// Closes the flyout, as moving off the native button would. The page calls
+/// this only while the flyout has keyboard focus, so Escape goes to it.
+#[tauri::command]
+pub fn hide_snap_layouts() {
+    #[cfg(target_os = "windows")]
+    send_keys(&[VK_ESCAPE]);
+}
+
+/// Presses the keys in order, then releases them in reverse.
+#[cfg(target_os = "windows")]
+fn send_keys(keys: &[VIRTUAL_KEY]) {
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP,
+    };
+
+    let key = |vk: VIRTUAL_KEY, up: bool| INPUT {
+        r#type: INPUT_KEYBOARD,
+        Anonymous: INPUT_0 {
+            ki: KEYBDINPUT {
+                wVk: vk,
+                dwFlags: if up { KEYEVENTF_KEYUP } else { KEYBD_EVENT_FLAGS(0) },
+                ..Default::default()
+            },
+        },
+    };
+    let inputs: Vec<INPUT> = keys
+        .iter()
+        .map(|&vk| key(vk, false))
+        .chain(keys.iter().rev().map(|&vk| key(vk, true)))
+        .collect();
+    unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) };
 }
 
 /// Sets up the close event handler for the dashboard window
@@ -218,10 +308,13 @@ fn setup_dashboard_close_handler<R: Runtime>(window: &WebviewWindow<R>) {
 /// Shows the dashboard window and brings it to focus
 pub fn show_dashboard_window<R: Runtime>(app: &AppHandle<R>) -> Result<(), String> {
     if let Some(dashboard_window) = app.get_webview_window("dashboard") {
-        // Window exists, show and focus it
+        // Window exists, show and focus it, bringing it back if minimised
         dashboard_window
             .show()
             .map_err(|e| format!("Failed to show dashboard window: {}", e))?;
+        dashboard_window
+            .unminimize()
+            .map_err(|e| format!("Failed to restore dashboard window: {}", e))?;
         dashboard_window
             .set_focus()
             .map_err(|e| format!("Failed to focus dashboard window: {}", e))?;

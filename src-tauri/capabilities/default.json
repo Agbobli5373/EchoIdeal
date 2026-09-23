@@ -18,6 +18,7 @@
     "global-shortcut:allow-unregister",
     "shell:allow-open",
     "core:window:allow-start-dragging",
+    "core:window:allow-set-theme",
     "sql:default",
     "sql:allow-execute",
     "posthog:default",

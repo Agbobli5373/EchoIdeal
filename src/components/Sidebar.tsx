@@ -1,5 +1,6 @@
 import { ZapIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { isMacOS } from "@/lib/platform";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useMenuItems, useVersion } from "@/hooks";
 
@@ -9,28 +10,42 @@ export const Sidebar = () => {
 
   const navigate = useNavigate();
   const activeRoute = useLocation().pathname;
+  // On Windows and Linux the title bar carries the app name instead.
+  const showBrand = isMacOS();
   return (
-    <aside className="flex w-60 flex-col select-none border-r border-sidebar-border/60">
+    <aside
+      className={cn(
+        "flex w-60 flex-col select-none",
+        showBrand && "pt-[52px] border-r border-sidebar-border/60"
+      )}
+    >
       {/* Brand */}
-      <div
-        onClick={() => navigate("/chats")}
-        className="flex h-16 items-center px-5 pt-10 gap-2.5 cursor-pointer"
-      >
-        <div className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 shadow-sm">
-          <ZapIcon className="size-4 text-primary-foreground" />
+      {showBrand && (
+        <div
+          onClick={() => navigate("/chats")}
+          className="flex h-12 items-center px-5 gap-2.5 cursor-pointer"
+        >
+          <div className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary/70 shadow-sm">
+            <ZapIcon className="size-4 text-primary-foreground" />
+          </div>
+          <div className="flex flex-col">
+            <h1 className="text-sm font-bold tracking-tight text-foreground">
+              EchoIdeal
+            </h1>
+            <span className="text-[9px] text-muted-foreground font-medium -mt-0.5 block">
+              {isLoading ? "Loading..." : `v${version}`}
+            </span>
+          </div>
         </div>
-        <div className="flex flex-col">
-          <h1 className="text-sm font-bold tracking-tight text-foreground">
-            EchoIdeal
-          </h1>
-          <span className="text-[9px] text-muted-foreground font-medium -mt-0.5 block">
-            {isLoading ? "Loading..." : `v${version}`}
-          </span>
-        </div>
-      </div>
+      )}
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-0.5 px-3 py-6">
+      <nav
+        className={cn(
+          "flex-1 space-y-0.5 px-3",
+          showBrand ? "py-6" : "pt-1 pb-6"
+        )}
+      >
         {menu.map((item, index) => {
           return (
             <button
@@ -44,10 +59,12 @@ export const Sidebar = () => {
               )}
             >
               <div className="flex items-center gap-2.5">
-                <item.icon className={cn(
-                  "size-4 transition-all duration-200",
-                  activeRoute.includes(item.href) ? "text-primary" : ""
-                )} />
+                <item.icon
+                  className={cn(
+                    "size-4 transition-all duration-200",
+                    activeRoute.includes(item.href) ? "text-primary" : ""
+                  )}
+                />
                 {item.label}
               </div>
               {item.count ? (

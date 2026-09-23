@@ -1375,6 +1375,7 @@ dependencies = [
  "tracing",
  "uuid",
  "wasapi",
+ "windows 0.61.3",
  "xcap",
 ]
 

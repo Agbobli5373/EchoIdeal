@@ -78,6 +78,8 @@ pub fn run() {
             window::toggle_dashboard,
             window::move_window,
             window::set_screen_share_visibility,
+            window::show_snap_layouts,
+            window::hide_snap_layouts,
             capture::capture_to_base64,
             capture::start_screen_capture,
             capture::capture_selected_area,

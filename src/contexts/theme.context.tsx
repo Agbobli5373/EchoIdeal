@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { STORAGE_KEYS } from "@/config/";
 
 type Theme = "dark" | "light" | "system";
@@ -87,6 +88,16 @@ export function ThemeProvider({
         mediaQuery.removeEventListener("change", updateTheme);
       }
     };
+  }, [theme]);
+
+  // The dashboard's Mica and vibrancy tint follow the window's theme, so keep
+  // it in step with the app's.
+  useEffect(() => {
+    const appWindow = getCurrentWindow();
+    if (appWindow.label !== "dashboard") return;
+    appWindow
+      .setTheme(theme === "system" ? null : theme)
+      .catch((error) => console.debug("Failed to set window theme:", error));
   }, [theme]);
 
   // Apply transparency globally

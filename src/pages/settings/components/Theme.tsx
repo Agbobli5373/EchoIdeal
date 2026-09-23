@@ -81,7 +81,7 @@ export const Theme = () => {
       <div className="space-y-2">
         <Header
           title="Window Transparency"
-          description="Adjust the transparency level of the application window"
+          description="Adjust how see-through the overlay is. The dashboard always stays opaque."
         />
         <div className="space-y-3">
           <div className="flex items-center gap-4 mt-4">
@@ -96,8 +96,8 @@ export const Theme = () => {
           </div>
 
           <p className="text-xs text-muted-foreground/70">
-            💡 Tip: Higher transparency lets you see through the window, perfect
-            for dark overlay. Changes apply immediately.
+            💡 Tip: Higher transparency lets you see through the overlay.
+            Changes apply immediately.
           </p>
         </div>
       </div>

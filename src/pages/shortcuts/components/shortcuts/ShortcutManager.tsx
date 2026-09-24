@@ -1,11 +1,5 @@
 import { useState, useEffect } from "react";
-import {
-  Button,
-  Keys,
-  SettingsGroup,
-  SettingsRow,
-  Switch,
-} from "@/components";
+import { Button, Keys, SettingsGroup, SettingsRow, Switch } from "@/components";
 import { RotateCcw, AlertCircle } from "lucide-react";
 import {
   getAllShortcutActions,
@@ -19,6 +13,25 @@ import {
 import { ShortcutAction, ShortcutBinding } from "@/types";
 import { invoke } from "@tauri-apps/api/core";
 import { ShortcutRecorder } from "./ShortcutRecorder";
+import { DEFAULT_SHORTCUT_ACTIONS } from "@/config";
+import { defineSettings } from "@/lib/settings-index";
+
+const shortcutRowId = (actionId: string) => `sc-${actionId.replace(/_/g, "-")}`;
+
+// Registered for settings search (see lib/settings-index): one row per built-in shortcut.
+defineSettings(
+  "/shortcuts-and-cursor",
+  Object.fromEntries(
+    DEFAULT_SHORTCUT_ACTIONS.map((action) => [
+      shortcutRowId(action.id),
+      {
+        title: action.name,
+        group: "Shortcuts",
+        keywords: `shortcut hotkey keyboard ${action.description}`,
+      },
+    ])
+  )
+);
 
 export const ShortcutManager = () => {
   const [actions, setActions] = useState<ShortcutAction[]>([]);
@@ -124,9 +137,7 @@ export const ShortcutManager = () => {
 
   // "ctrl+shift+m" → ["Ctrl", "Shift", "M"]
   const keysOf = (action: ShortcutAction, key: string) => {
-    const keys = formatShortcutKeyForDisplay(key)
-      .split(" + ")
-      .filter(Boolean);
+    const keys = formatShortcutKeyForDisplay(key).split(" + ").filter(Boolean);
     return action.id === "move_window" ? [...keys, "Arrow keys"] : keys;
   };
 
@@ -171,10 +182,9 @@ export const ShortcutManager = () => {
         return (
           <SettingsRow
             key={action.id}
-            id={`sc-${action.id.replace(/_/g, "-")}`}
+            id={shortcutRowId(action.id)}
             title={action.name}
             desc={action.description}
-            keywords={`shortcut hotkey keyboard ${action.id.replace(/_/g, " ")}`}
             stacked={isEditing}
             control={
               isEditing ? undefined : (

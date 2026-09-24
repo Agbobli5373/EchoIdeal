@@ -9,6 +9,16 @@ import {
 import { useApp } from "@/contexts";
 import { getPlatform } from "@/lib";
 import { CursorType } from "@/lib/storage";
+import { defineSettings } from "@/lib/settings-index";
+
+// Registered for settings search (see lib/settings-index).
+const SETTINGS = defineSettings("/shortcuts-and-cursor", {
+  cursor: {
+    title: "Cursor over the overlay",
+    group: "Cursor",
+    keywords: "pointer mouse invisible",
+  },
+});
 
 export const CursorSelection = () => {
   const { customizable, setCursorType } = useApp();
@@ -16,10 +26,9 @@ export const CursorSelection = () => {
 
   return (
     <SettingsRow
-      id="cursor"
-      title="Cursor over the overlay"
+      {...SETTINGS.cursor}
       desc="Invisible hides the pointer over the overlay; Auto shows the usual pointer for text and links."
-      keywords="pointer mouse invisible"
+
       control={
         <Select
           value={customizable.cursor.type}

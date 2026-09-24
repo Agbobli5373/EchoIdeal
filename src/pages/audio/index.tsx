@@ -2,6 +2,21 @@ import { AudioSelection } from "./components";
 import { PageLayout } from "@/layouts";
 import { SettingsGroup, SettingsRow } from "@/components";
 import { getPlatform } from "@/lib";
+import { defineSettings } from "@/lib/settings-index";
+
+// Registered for settings search (see lib/settings-index).
+const SETTINGS = defineSettings("/audio", {
+  "audio-defaults": {
+    title: "Check your system’s default devices",
+    group: "Devices not working?",
+    keywords: "permission troubleshooting not working default device",
+  },
+  "audio-check": {
+    title: "See which microphone is in use",
+    group: "Devices not working?",
+    keywords: "verify active device",
+  },
+});
 
 const getOsInstructions = () => {
   const platform = getPlatform();
@@ -45,8 +60,7 @@ const Audio = () => {
           children: (
             <>
               <SettingsRow
-                id="audio-defaults"
-                title="Check your system’s default devices"
+                {...SETTINGS["audio-defaults"]}
                 desc={
                   <>
                     Microphone: {osInstructions.mic}. Speakers and headphones:{" "}
@@ -54,13 +68,10 @@ const Audio = () => {
                     goes away, EchoIdeal falls back to the system default.
                   </>
                 }
-                keywords="permission troubleshooting not working default device"
               />
               <SettingsRow
-                id="audio-check"
-                title="See which microphone is in use"
+                {...SETTINGS["audio-check"]}
                 desc="Hover over the microphone button in the overlay; it shows the device it’s listening to."
-                keywords="verify active device"
               />
             </>
           ),

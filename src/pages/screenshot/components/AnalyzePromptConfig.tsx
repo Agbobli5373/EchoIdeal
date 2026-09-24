@@ -5,10 +5,18 @@ import {
   getScreenshotAnalyzePrompt,
   setScreenshotAnalyzePrompt,
 } from "@/lib/storage/screenshot-analyze.storage";
-import {
-  SCREENSHOT_ANALYZE_PRESETS,
-} from "@/config/constants";
+import { SCREENSHOT_ANALYZE_PRESETS } from "@/config/constants";
 import { CheckIcon, RotateCcwIcon } from "lucide-react";
+import { defineSettings } from "@/lib/settings-index";
+
+// Registered for settings search (see lib/settings-index).
+const SETTINGS = defineSettings("/screen-capture", {
+  "cap-prompt": {
+    title: "What to ask about a capture",
+    group: "Screen Capture prompt",
+    keywords: "analyze analyse prompt screenshot preset solve code",
+  },
+});
 
 export const AnalyzePromptConfig = () => {
   const [prompt, setPrompt] = useState("");
@@ -33,14 +41,17 @@ export const AnalyzePromptConfig = () => {
 
   return (
     <SettingsRow
-      id="cap-prompt"
-      title="What to ask about a capture"
+      {...SETTINGS["cap-prompt"]}
       desc="Used by Screenshot & Analyze, the scan button or Ctrl+Shift+E. Pick a preset or write your own."
-      keywords="analyze analyse prompt screenshot preset solve code"
+
       stacked
     >
       <div className="space-y-3">
-        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Presets">
+        <div
+          className="flex flex-wrap gap-1.5"
+          role="group"
+          aria-label="Presets"
+        >
           {SCREENSHOT_ANALYZE_PRESETS.map((preset) => (
             <button
               key={preset.id}

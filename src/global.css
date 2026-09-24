@@ -234,6 +234,11 @@ body {
   border-top-left-radius: 8px;
 }
 
+/* The sidebar's search box has its own icon, and Escape clears it */
+aside input[type="search"]::-webkit-search-cancel-button {
+  display: none;
+}
+
 /* Settings rows: 58px on Windows and Linux, 44px on macOS */
 .settings-row {
   min-height: 58px;

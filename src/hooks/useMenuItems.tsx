@@ -11,6 +11,7 @@ import {
   EyeOffIcon,
   SlidersHorizontalIcon,
   HouseIcon,
+  InfoIcon,
 } from "lucide-react";
 import { useReadiness } from "./useReadiness";
 
@@ -55,6 +56,7 @@ export const useMenuItems = () => {
         { icon: PaletteIcon, label: "Appearance", href: "/appearance" },
         { icon: EyeOffIcon, label: "Privacy", href: "/privacy" },
         { icon: SlidersHorizontalIcon, label: "General", href: "/general" },
+        { icon: InfoIcon, label: "About", href: "/about" },
       ],
     },
   ];

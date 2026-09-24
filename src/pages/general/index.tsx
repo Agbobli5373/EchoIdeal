@@ -1,10 +1,9 @@
 import {
-  About,
   AlwaysOnTopToggle,
   AutostartToggle,
   DeleteChats,
 } from "../settings/components";
-import { SettingsGroup } from "@/components";
+import { SettingsGroup, SettingsRow } from "@/components";
 import { useSettings } from "@/hooks";
 import { PageLayout } from "@/layouts";
 
@@ -18,8 +17,13 @@ const General = () => {
         <AlwaysOnTopToggle />
         <DeleteChats {...settings} />
       </SettingsGroup>
-      <SettingsGroup title="About">
-        <About />
+      <SettingsGroup>
+        <SettingsRow
+          id="about"
+          title="About EchoIdeal"
+          desc="Version and updates, the developer, how to get in touch, and the licence."
+          to="/about"
+        />
       </SettingsGroup>
     </PageLayout>
   );

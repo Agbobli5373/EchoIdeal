@@ -8,6 +8,7 @@
     "core:default",
     "opener:default",
     "updater:default",
+    "process:allow-restart",
     "keychain:default",
     "keychain:allow-get-item",
     "keychain:allow-save-item",

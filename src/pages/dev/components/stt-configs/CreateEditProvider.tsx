@@ -7,7 +7,7 @@ import {
   Textarea,
   Selection,
 } from "@/components";
-import { PlusIcon, SaveIcon } from "lucide-react";
+import { SaveIcon } from "lucide-react";
 import { useCustomSttProviders } from "@/hooks";
 import { useApp } from "@/contexts";
 import { cn } from "@/lib/utils";
@@ -31,25 +31,13 @@ export const CreateEditProvider = ({
     setFormData,
     errors,
     handleSave,
-    setErrors,
     handleAutoFill,
   } = hookInstance;
 
   return (
     <>
-      {!showForm ? (
-        <Button
-          onClick={() => {
-            setShowForm(true);
-            setErrors({});
-          }}
-          variant="outline"
-          className="w-full h-11 border-1 border-input/50 focus:border-primary/50 transition-colors"
-        >
-          <PlusIcon className="h-4 w-4 mr-2" />
-          Add Custom STT Provider
-        </Button>
-      ) : (
+      {/* Opened from the "Add a custom provider" row, or by Edit */}
+      {!showForm ? null : (
         <Card className="p-4 border border-input/50 bg-transparent">
           <div className="flex justify-between items-center">
             <Header

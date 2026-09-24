@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Header, Button } from "@/components";
+import { Button, SettingsRow } from "@/components";
 import { Textarea } from "@/components/ui/textarea";
 import {
   getScreenshotAnalyzePrompt,
@@ -32,34 +32,32 @@ export const AnalyzePromptConfig = () => {
   };
 
   return (
-    <div className="space-y-3">
-      <Header
-        title="Screenshot & Analyze Prompt"
-        description="Customize the default prompt used when you click the analyze button or press Ctrl+Shift+E. This controls what the AI does with your screenshot."
-        isMainTitle
-      />
-
-      <div className="space-y-2">
-        <p className="text-xs font-medium text-muted-foreground">Quick Presets</p>
-        <div className="flex flex-wrap gap-1.5">
+    <SettingsRow
+      id="cap-prompt"
+      title="What to ask about a capture"
+      desc="Used by Screenshot & Analyze, the scan button or Ctrl+Shift+E. Pick a preset or write your own."
+      keywords="analyze analyse prompt screenshot preset solve code"
+      stacked
+    >
+      <div className="space-y-3">
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Presets">
           {SCREENSHOT_ANALYZE_PRESETS.map((preset) => (
             <button
               key={preset.id}
+              type="button"
+              aria-pressed={prompt === preset.prompt}
               onClick={() => handlePreset(preset.prompt)}
-              className={`px-2.5 py-1.5 rounded-lg border text-xs transition-all duration-200 ${
+              className={`rounded-full border px-3 py-1 text-xs transition-colors ${
                 prompt === preset.prompt
-                  ? "border-primary/40 bg-primary/10 text-primary font-medium"
-                  : "border-border/50 text-muted-foreground hover:bg-accent hover:text-accent-foreground hover:border-primary/20"
+                  ? "border-transparent bg-accent text-foreground"
+                  : "border-input text-muted-foreground hover:text-foreground"
               }`}
             >
               {preset.label}
             </button>
           ))}
         </div>
-      </div>
 
-      <div className="space-y-2">
-        <p className="text-xs font-medium text-muted-foreground">Custom Prompt</p>
         <Textarea
           value={prompt}
           onChange={(e) => {
@@ -67,6 +65,7 @@ export const AnalyzePromptConfig = () => {
             setSaved(false);
           }}
           placeholder="Enter your custom prompt for screenshot analysis..."
+          aria-label="Screen Capture prompt"
           className="min-h-[100px] text-sm"
           rows={4}
         />
@@ -83,7 +82,7 @@ export const AnalyzePromptConfig = () => {
                 Saved
               </>
             ) : (
-              "Save Prompt"
+              "Save prompt"
             )}
           </Button>
           <Button
@@ -97,11 +96,6 @@ export const AnalyzePromptConfig = () => {
           </Button>
         </div>
       </div>
-
-      <p className="text-[10px] text-muted-foreground/60">
-        Tip: Use "Solve Questions" for exams/homework, "Code Helper" for programming,
-        or write your own prompt for specific use cases.
-      </p>
-    </div>
+    </SettingsRow>
   );
 };

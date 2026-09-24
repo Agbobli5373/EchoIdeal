@@ -1,4 +1,5 @@
 import { AppIconToggle, ScreenShareToggle } from "../settings/components";
+import { SettingsGroup } from "@/components";
 import { PageLayout } from "@/layouts";
 
 const Privacy = () => {
@@ -7,8 +8,10 @@ const Privacy = () => {
       title="Privacy"
       subtitle="What other people and apps can see."
     >
-      <ScreenShareToggle />
-      <AppIconToggle />
+      <SettingsGroup>
+        <ScreenShareToggle />
+        <AppIconToggle />
+      </SettingsGroup>
     </PageLayout>
   );
 };

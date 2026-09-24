@@ -1,21 +1,26 @@
 import { ScreenshotConfigs, AnalyzePromptConfig } from "./components";
+import { SettingsGroup } from "@/components";
 import { useSettings } from "@/hooks";
 import { PageLayout } from "@/layouts";
 
-const Settings = () => {
+const ScreenCapture = () => {
   const settings = useSettings();
   return (
     <PageLayout
       title="Screen Capture"
       subtitle="How Screen Captures are taken and answered."
     >
-      {/* Screenshot & Analyze Prompt */}
-      <AnalyzePromptConfig />
-
-      {/* Screenshot Configs */}
-      <ScreenshotConfigs {...settings} />
+      <SettingsGroup
+        more={{
+          id: "cap-more",
+          label: "Screen Capture prompt",
+          children: <AnalyzePromptConfig />,
+        }}
+      >
+        <ScreenshotConfigs {...settings} />
+      </SettingsGroup>
     </PageLayout>
   );
 };
 
-export default Settings;
+export default ScreenCapture;

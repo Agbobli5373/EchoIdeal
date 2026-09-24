@@ -1,5 +1,14 @@
 import { Switch, SettingsRow } from "@/components";
 import { useApp } from "@/contexts";
+import { defineSettings } from "@/lib/settings-index";
+
+// Registered for settings search (see lib/settings-index).
+const SETTINGS = defineSettings("/general", {
+  startup: {
+    title: "Open when your computer starts",
+    keywords: "launch login autostart startup",
+  },
+});
 
 export const AutostartToggle = () => {
   const { customizable, toggleAutostart } = useApp();
@@ -7,9 +16,8 @@ export const AutostartToggle = () => {
 
   return (
     <SettingsRow
-      id="startup"
-      title="Open when your computer starts"
-      keywords="launch login autostart startup"
+      {...SETTINGS.startup}
+
       control={
         <Switch
           checked={isEnabled}

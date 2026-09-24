@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { ScrollArea, Button, Input, Markdown, PageHeader } from "@/components";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +15,7 @@ import {
   updateMeetingTitle,
   updateMeetingSpeakerNames,
   addTranscriptSegment,
+  setMeetingRecapDocument,
 } from "@/lib/database/meetings.action";
 import { createKnowledgeDocument } from "@/lib/database/knowledge.action";
 import { TranscriptSegmentItem } from "./TranscriptSegmentItem";
@@ -427,17 +428,30 @@ const MeetingView = () => {
     }
   }, [meeting, isWritingRecap, resolveAI]);
 
-  // Recaps are saved switched off, like any new Knowledge Document.
+  // Home's "Write Recap" opens this page with ?recap=1: start writing once the Meeting has loaded.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("recap") !== "1" || !meeting || !canSaveRecap(meeting)) return;
+    setSearchParams({}, { replace: true });
+    handleWriteRecap();
+  }, [searchParams, meeting, handleWriteRecap, setSearchParams]);
+
+  // Recaps are saved switched off, like any new Knowledge Document, and linked to their Meeting
+  // so Home and the Meetings list can show "Recap saved" and offer them under Carry forward.
   const handleSaveRecap = useCallback(async (name: string, content: string) => {
     try {
       const doc = await createKnowledgeDocument({ name, source_type: "markdown", content });
+      if (meeting) {
+        await setMeetingRecapDocument(meeting.id, doc.id);
+        setMeeting((prev) => (prev ? { ...prev, recapDocumentId: doc.id } : prev));
+      }
       setRecapMessage({ saved: true, text: `Saved “${doc.name}” to Knowledge, switched off.` });
       return true;
     } catch (err) {
       setRecapMessage({ saved: false, text: err instanceof Error ? err.message : String(err) });
       return false;
     }
-  }, []);
+  }, [meeting]);
 
   if (isLoading) {
     return (

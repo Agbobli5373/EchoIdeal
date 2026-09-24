@@ -41,7 +41,7 @@ export const Sidebar = () => {
       {/* Brand */}
       {showBrand && (
         <div
-          onClick={() => navigate("/chats")}
+          onClick={() => navigate("/home")}
           className="flex h-12 items-center px-5 gap-2.5 cursor-pointer"
         >
           <div className="flex size-8 items-center justify-center rounded-lg bg-primary">
@@ -122,7 +122,15 @@ export const Sidebar = () => {
                   />
                   <span className="truncate">{item.label}</span>
                   {item.count ? (
-                    <span className="ml-auto text-xs text-muted-foreground">
+                    <span
+                      className={cn(
+                        "ml-auto text-xs",
+                        current && mac
+                          ? "text-primary-foreground/80"
+                          : "text-muted-foreground"
+                      )}
+                      title={`${item.count} ${item.count === 1 ? "thing needs" : "things need"} attention`}
+                    >
                       {item.count}
                     </span>
                   ) : null}

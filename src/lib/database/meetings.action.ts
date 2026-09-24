@@ -17,6 +17,8 @@ export interface Meeting {
   memorySummaryUntilMs: number | null;
   // Display names chosen in the review view, keyed by the stored speaker ("You" / "Them").
   speakerNames: Record<string, string> | null;
+  // The Knowledge Document this Meeting's Recap was saved as, if it still exists.
+  recapDocumentId: number | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -65,6 +67,7 @@ interface DbMeeting {
   memory_summary: string | null;
   memory_summary_until_ms: number | null;
   speaker_names: string | null;
+  recap_document_id: number | null;
   created_at: number;
   updated_at: number;
 }
@@ -122,6 +125,7 @@ function mapDbMeeting(row: DbMeeting): Meeting {
     memorySummary: row.memory_summary,
     memorySummaryUntilMs: row.memory_summary_until_ms,
     speakerNames: row.speaker_names ? JSON.parse(row.speaker_names) : null,
+    recapDocumentId: row.recap_document_id ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -170,6 +174,7 @@ export async function createMeeting(meeting: {
     memorySummary: null,
     memorySummaryUntilMs: null,
     speakerNames: null,
+    recapDocumentId: null,
     createdAt: now,
     updatedAt: now,
   };
@@ -227,6 +232,17 @@ export async function updateMeetingMemorySummary(
     "UPDATE meetings SET memory_summary = ?, memory_summary_until_ms = ? WHERE id = ?",
     [summary, untilMs, id]
   );
+}
+
+export async function setMeetingRecapDocument(
+  id: string,
+  documentId: number | null
+): Promise<void> {
+  const db = await getDatabase();
+  await db.execute("UPDATE meetings SET recap_document_id = ? WHERE id = ?", [
+    documentId,
+    id,
+  ]);
 }
 
 export async function getAllMeetings(): Promise<Meeting[]> {

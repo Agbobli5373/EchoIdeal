@@ -85,4 +85,4 @@ cd src-tauri && cargo check
 
 ## License
 
-GPL-3.0
+EchoIdeal is free software under the GNU General Public License v3.0; see [LICENSE](LICENSE).

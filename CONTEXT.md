@@ -17,7 +17,7 @@ _Avoid_: Speaker, system audio
 ### Knowledge
 
 **Knowledge Document**:
-A text document the Candidate provides (an uploaded file, an image converted to text, or pasted text) whose content the AI treats as facts about the Candidate and their situation, such as a CV, a job description or a prepared story.
+A text document the Candidate provides (an uploaded file, an image converted to text, or pasted text) whose content the AI treats as facts about the Candidate and their situation, such as a CV, a job description or a prepared story, or as reference material they chose, such as a manual. It is the only source of facts about the Candidate, but never limits answers to general questions.
 _Avoid_: Context, attachment, file, resume box
 
 **Active Knowledge**:
@@ -85,7 +85,7 @@ What the Candidate actually said, transcribed from their microphone; it takes pr
 _Avoid_: User message, mic transcript
 
 **Ungrounded Answer**:
-A Suggested Answer that needs facts about the Candidate (experience, projects, numbers, background) which neither Active Knowledge (for a Searched Document, the passages sent with that question) nor Meeting Memory provides, shown with a visible marker; general technical answers are never Ungrounded.
+A Suggested Answer that needs facts about the Candidate (experience, projects, numbers, background) which neither Active Knowledge (for a Searched Document, the passages sent with that question) nor Meeting Memory provides, shown with a visible marker; general, technical and world questions are never Ungrounded, even when Active Knowledge doesn't cover them.
 _Avoid_: Fallback answer, generic answer
 
 **Web Search**:

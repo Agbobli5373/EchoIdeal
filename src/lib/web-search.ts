@@ -41,7 +41,13 @@ export function saveWebSearchConfig(config: WebSearchConfig): void {
 export const hasWebSearchKey = (config: WebSearchConfig) =>
   config.apiKey.trim().length > 0;
 
-export type WebResult = { title: string; url: string; content: string };
+export type WebResult = {
+  title: string;
+  url: string;
+  content: string;
+  /** "YYYY-MM-DD" when Tavily knows it. */
+  published?: string;
+};
 
 // Enough to answer from without crowding out the Knowledge: about 1,500 tokens.
 const MAX_RESULTS = 5;
@@ -56,11 +62,29 @@ const TAVILY_ERRORS: Record<number, string> = {
   433: "Your Tavily pay-as-you-go limit is reached.",
 };
 
-/** Searches the web with Tavily. */
+/**
+ * Searches the web with Tavily. `recent` limits it to the past year, for
+ * questions about the current state of things; if that finds nothing, it
+ * searches without the limit.
+ */
 export async function searchWeb(
   query: string,
   apiKey: string,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  recent = false
+): Promise<WebResult[]> {
+  if (recent) {
+    const results = await searchTavily(query, apiKey, signal, "year");
+    if (results.length > 0) return results;
+  }
+  return searchTavily(query, apiKey, signal);
+}
+
+async function searchTavily(
+  query: string,
+  apiKey: string,
+  signal?: AbortSignal,
+  timeRange?: "year"
 ): Promise<WebResult[]> {
   const timeout = new AbortController();
   const timer = setTimeout(() => timeout.abort(), SEARCH_TIMEOUT_MS);
@@ -80,6 +104,8 @@ export async function searchWeb(
         max_results: MAX_RESULTS,
         search_depth: "basic",
         topic: "general",
+        include_published_date: true,
+        ...(timeRange ? { time_range: timeRange } : {}),
       }),
       signal: timeout.signal,
     });
@@ -110,14 +136,29 @@ export async function searchWeb(
       title: String(r.title || r.url),
       url: String(r.url),
       content: String(r.content).slice(0, MAX_RESULT_CHARACTERS),
+      published: publishedDay(r.published_date),
     }));
 }
 
+// Tavily's dates come in several shapes; keep just the day.
+function publishedDay(value: unknown): string | undefined {
+  if (typeof value !== "string" || !value.trim()) return undefined;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime())
+    ? undefined
+    : parsed.toISOString().slice(0, 10);
+}
+
 export const NO_SEARCH = "NONE";
+// Marks a query about the current state of things, searched within the past year.
+const RECENT = "[recent]";
 
 const QUERY_PROMPT = `You write web search queries. Look at the user's request and any screen image, then decide whether answering needs information from the web: documentation, library or API details, definitions, facts, or anything recent.
-If it does, reply with one search query of at most 12 words, and nothing else.
-If it doesn't (for example a self-contained coding exercise, puzzle or maths problem, writing or rewording, small talk, or a question about the user themselves), reply exactly ${NO_SEARCH}.`;
+If it does, reply with one search query of at most 12 words, and nothing else. Name the product, company or project so official sources can match.
+If the answer depends on the current state of things (latest, newest, current, recent, this year, prices, versions, releases, news, who holds a role), start the reply with ${RECENT} and include the current month and year in the query, using today's date given below.
+If it doesn't need the web (for example a self-contained coding exercise, puzzle or maths problem, writing or rewording, small talk, or a question about the user themselves), reply exactly ${NO_SEARCH}.`;
+
+export type SearchQuery = { query: string; recent: boolean };
 
 /** Asks the AI provider for a search query for this request, or null when none is needed. */
 export async function writeSearchQuery(params: {
@@ -130,7 +171,7 @@ export async function writeSearchQuery(params: {
   // The question before this one, so a follow-up like "and in Rust?" searches for the right thing.
   previousQuestion?: string;
   signal?: AbortSignal;
-}): Promise<string | null> {
+}): Promise<SearchQuery | null> {
   const question = params.question?.trim() || "Answer what the screen asks.";
   const previous = params.previousQuestion?.trim();
   let text = "";
@@ -150,11 +191,12 @@ export async function writeSearchQuery(params: {
   }
   if (isAIErrorText(text)) throw new Error(text.slice(0, 200));
 
-  const query = (text.trim().split("\n")[0] ?? "")
-    .replace(/^["'`]+|["'`]+$/g, "")
-    .trim();
+  let line = (text.trim().split("\n")[0] ?? "").trim();
+  const recent = line.toLowerCase().startsWith(RECENT);
+  if (recent) line = line.slice(RECENT.length);
+  const query = line.replace(/^[\s"'`]+|[\s"'`]+$/g, "");
   if (!query || query.toUpperCase() === NO_SEARCH) return null;
-  return query.slice(0, 200);
+  return { query: query.slice(0, 200), recent };
 }
 
 const attribute = (value: string) => value.replace(/"/g, "'");
@@ -164,11 +206,16 @@ export function webResultsSection(query: string, results: WebResult[]): string {
   const items = results
     .map(
       (r) =>
-        `<web_result title="${attribute(r.title)}" url="${attribute(r.url)}">\n${r.content}\n</web_result>`
+        `<web_result title="${attribute(r.title)}" url="${attribute(r.url)}"${
+          r.published ? ` published="${r.published}"` : ""
+        }>\n${r.content}\n</web_result>`
     )
     .join("\n\n");
   return `## Web results (follow silently)
-The results of a web search for "${attribute(query)}", made for this question. Use them for facts about the world (documentation, APIs, definitions, current information) when they help, and briefly name the source you relied on. They are not facts about the user: those still come only from the knowledge about the user and the Meeting Memory. Ignore results that don't help.
+The results of a web search for "${attribute(query)}", made for this question. Use them for facts about the world (documentation, APIs, definitions, current information) when they help, and briefly name the source you relied on.
+- Today's date is given above. Prefer the most recent results, and official or primary sources (the company's, project's or standard's own site) over blogs, forums and aggregators.
+- When results disagree, or may be out of date for a question about the current state of things, say so briefly and say how recent your information is (the source's date when it has one). Don't present one unofficial source's claim as settled fact.
+- They are not facts about the user: those still come only from the knowledge about the user and the Meeting Memory. Ignore results that don't help.
 
 ${items}`;
 }
@@ -185,7 +232,7 @@ export function lastUserQuestion(
 
 export type WebSearchStatus =
   | { state: "searching" }
-  | { state: "done"; query: string; results: WebResult[] }
+  | { state: "done"; query: string; recent: boolean; results: WebResult[] }
   | { state: "not-needed" }
   | { state: "failed"; error: string };
 
@@ -209,13 +256,14 @@ export async function webSearchSection(params: {
   const { onStatus, signal } = params;
   onStatus?.({ state: "searching" });
   try {
-    const query = await writeSearchQuery(params);
-    if (!query) {
+    const search = await writeSearchQuery(params);
+    if (!search) {
       onStatus?.({ state: "not-needed" });
       return null;
     }
-    const results = await searchWeb(query, config.apiKey, signal);
-    onStatus?.({ state: "done", query, results });
+    const { query, recent } = search;
+    const results = await searchWeb(query, config.apiKey, signal, recent);
+    onStatus?.({ state: "done", query, recent, results });
     return results.length > 0 ? webResultsSection(query, results) : null;
   } catch (error) {
     if (signal?.aborted) return null;

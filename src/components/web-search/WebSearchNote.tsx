@@ -10,6 +10,15 @@ const hostOf = (url: string) => {
   }
 };
 
+// "2026-09-12" → "12 Sep 2026"
+const formatDay = (day: string) =>
+  new Date(`${day}T00:00:00Z`).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+
 /** Under an answer: what the web was searched for and the sources, or why it wasn't. */
 export const WebSearchNote = ({
   status,
@@ -58,6 +67,7 @@ export const WebSearchNote = ({
                 <span className="text-muted-foreground/70">
                   {" "}
                   · {hostOf(result.url)}
+                  {result.published && ` · ${formatDay(result.published)}`}
                 </span>
               </button>
             </li>

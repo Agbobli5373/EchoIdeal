@@ -156,6 +156,12 @@ export async function setKnowledgeDocumentActive(
 
 export async function deleteKnowledgeDocument(id: number): Promise<void> {
   const db = await getDatabase();
+  // A Meeting whose Recap this was no longer has one. The column's foreign key
+  // does this too, but only while SQLite enforces foreign keys.
+  await db.execute(
+    "UPDATE meetings SET recap_document_id = NULL WHERE recap_document_id = ?",
+    [id]
+  );
   const result = await db.execute(
     "DELETE FROM knowledge_documents WHERE id = ?",
     [id]

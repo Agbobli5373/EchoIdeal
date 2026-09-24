@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useWindowResize, useGlobalShortcuts } from ".";
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { emit, listen } from "@tauri-apps/api/event";
 import { useApp } from "@/contexts";
 import { fetchSTT, fetchAIResponse, isAIErrorText } from "@/lib/functions";
 import {
@@ -39,6 +39,13 @@ import { getScreenshotAnalyzePrompt } from "@/lib/storage/screenshot-analyze.sto
 import { Message } from "@/types/completion";
 
 const LAST_MEETING_TYPE_KEY = "last_meeting_type";
+
+// Tells the dashboard (Home, Meetings) that a Meeting started or ended here.
+const notifyMeetingsChanged = () => {
+  emit("meetings-changed").catch((err) =>
+    console.error("Failed to announce a meeting change:", err)
+  );
+};
 
 export interface StartMeetingOptions {
   type: MeetingType;
@@ -150,6 +157,8 @@ export function useSystemAudio() {
 
   const activeMeeting = useActiveMeeting();
   const [isStartPromptOpen, setIsStartPromptOpen] = useState(false);
+  // The type chosen on the dashboard's Home, which the start form opens on.
+  const [startType, setStartType] = useState<MeetingType | null>(null);
   const [pendingResume, setPendingResume] = useState<Meeting | null>(null);
   const [isEndingMeeting, setIsEndingMeeting] = useState(false);
   const [isCapturingScreen, setIsCapturingScreen] = useState(false);
@@ -802,6 +811,8 @@ export function useSystemAudio() {
         });
         safeLocalStorage.setItem(LAST_MEETING_TYPE_KEY, type);
         activeMeetingStore.set(meeting);
+        setStartType(null);
+        notifyMeetingsChanged();
         setConversation({
           id: meeting.id,
           title: meeting.title,
@@ -967,6 +978,7 @@ export function useSystemAudio() {
       if (capturing) await stopCapture();
       await endMeeting(meeting.id);
       activeMeetingStore.set(null);
+      notifyMeetingsChanged();
       setPendingResume(null);
       setConversation({
         id: "",
@@ -995,6 +1007,42 @@ export function useSystemAudio() {
       setIsEndingMeeting(false);
     }
   }, [pendingResume, capturing, stopCapture, allAiProviders, selectedAIProvider]);
+
+  // Home in the dashboard opens the start form on a type, and ends Meetings. A Meeting this
+  // window isn't running (e.g. started from the Meetings page) is just marked ended.
+  const endRequested = useRef<(id: string) => Promise<void>>(async () => {});
+  endRequested.current = async (id: string) => {
+    const running = activeMeetingStore.get() ?? pendingResume;
+    if (running?.id === id) {
+      await endActiveMeeting();
+      return;
+    }
+    await endMeeting(id);
+    notifyMeetingsChanged();
+  };
+
+  // Closing the start form forgets the type Home chose.
+  useEffect(() => {
+    if (!isStartPromptOpen) setStartType(null);
+  }, [isStartPromptOpen]);
+
+  useEffect(() => {
+    const unlistenStart = listen<MeetingType>("open-meeting-start", (event) => {
+      if (activeMeetingStore.get()) return;
+      setStartType(event.payload);
+      setIsStartPromptOpen(true);
+    });
+    const unlistenEnd = listen<{ id: string }>("end-meeting", (event) => {
+      endRequested.current(event.payload.id).catch((err) => {
+        console.error("Failed to end the meeting:", err);
+        setError(err instanceof Error ? err.message : String(err));
+      });
+    });
+    return () => {
+      unlistenStart.then((unlisten) => unlisten());
+      unlistenEnd.then((unlisten) => unlisten());
+    };
+  }, []);
 
   // The Candidate's own speech is only recorded (into Meeting Memory); it never triggers a
   // Suggested Answer.
@@ -1155,7 +1203,7 @@ export function useSystemAudio() {
     activeMeeting,
     isStartPromptOpen,
     setIsStartPromptOpen,
-    lastMeetingType,
+    lastMeetingType: startType ?? lastMeetingType,
     startMeeting,
     pendingResume,
     resumeMeeting,

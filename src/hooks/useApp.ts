@@ -72,6 +72,14 @@ export const useApp = () => {
     window.dispatchEvent(new CustomEvent("newConversation"));
   };
 
+  // Shown from the dashboard (Home's Start or Open overlay): unhide the page's content.
+  useEffect(() => {
+    const unlistenPromise = listen("overlay-shown", () => setIsHidden(false));
+    return () => {
+      unlistenPromise.then((unlisten) => unlisten());
+    };
+  }, []);
+
   // WINDOWS HIDE/SHOW TOGGLE WINDOW WORKAROUND FOR SHORTCUTS
   useEffect(() => {
     const unlistenPromise = listen<boolean>(

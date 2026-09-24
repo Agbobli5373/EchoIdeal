@@ -8,7 +8,9 @@ import {
   deleteMeeting,
 } from "@/lib/database/meetings.action";
 import { useMeeting } from "@/hooks/useMeeting";
-import { MEETING_TYPE_LABELS } from "@/lib/meeting";
+import { canSaveRecap, MEETING_TYPE_LABELS } from "@/lib/meeting";
+import type { MeetingType } from "@/lib/database/meetings.action";
+import { cn } from "@/lib/utils";
 import {
   PlusIcon,
   TrashIcon,
@@ -17,7 +19,15 @@ import {
   MicIcon,
   SquareIcon,
   FileTextIcon,
+  CheckCircle2Icon,
 } from "lucide-react";
+
+const TYPE_FILTERS: { value: MeetingType | "all"; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "interview", label: "Interviews" },
+  { value: "assessment", label: "Assessments" },
+  { value: "general", label: "General" },
+];
 
 function formatDate(ms: number): string {
   const date = new Date(ms);
@@ -53,15 +63,12 @@ function formatDuration(startMs: number, endMs: number | null): string {
 
 const Meetings = () => {
   const navigate = useNavigate();
-  const {
-    activeMeeting,
-    formattedElapsed,
-    startMeeting,
-    endCurrentMeeting,
-  } = useMeeting();
+  const { activeMeeting, formattedElapsed, startMeeting, endCurrentMeeting } =
+    useMeeting();
 
   const [meetings, setMeetings] = useState<Meeting[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [typeFilter, setTypeFilter] = useState<MeetingType | "all">("all");
 
   const load = async () => {
     setIsLoading(true);
@@ -89,7 +96,12 @@ const Meetings = () => {
     load();
   };
 
-  const groupedMeetings = meetings.reduce<Record<string, Meeting[]>>(
+  const visibleMeetings =
+    typeFilter === "all"
+      ? meetings
+      : meetings.filter((meeting) => meeting.type === typeFilter);
+
+  const groupedMeetings = visibleMeetings.reduce<Record<string, Meeting[]>>(
     (groups, meeting) => {
       const key = formatDate(meeting.startedAt);
       if (!groups[key]) groups[key] = [];
@@ -134,7 +146,8 @@ const Meetings = () => {
           </div>
           <p className="text-sm font-medium">No meetings yet</p>
           <p className="text-xs text-muted-foreground text-center max-w-xs">
-            Start a new meeting to begin recording and transcribing in real time.
+            Start a new meeting to begin recording and transcribing in real
+            time.
           </p>
           <Button size="sm" onClick={handleStart} className="mt-2">
             <PlusIcon className="size-3.5" />
@@ -143,6 +156,33 @@ const Meetings = () => {
         </div>
       ) : (
         <div className="flex flex-col gap-4">
+          <div
+            className="flex flex-wrap gap-1.5"
+            role="group"
+            aria-label="Show"
+          >
+            {TYPE_FILTERS.map((filter) => (
+              <button
+                key={filter.value}
+                type="button"
+                aria-pressed={typeFilter === filter.value}
+                onClick={() => setTypeFilter(filter.value)}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-xs transition-colors",
+                  typeFilter === filter.value
+                    ? "border-transparent bg-accent text-foreground"
+                    : "border-input text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+          {visibleMeetings.length === 0 && (
+            <p className="py-6 text-center text-xs text-muted-foreground">
+              No {TYPE_FILTERS.find((f) => f.value === typeFilter)?.label} yet.
+            </p>
+          )}
           {Object.entries(groupedMeetings).map(([date, dateMeetings]) => (
             <div key={date}>
               <p className="text-xs font-medium text-muted-foreground mb-2">
@@ -183,17 +223,30 @@ const Meetings = () => {
                         </div>
                       </div>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="size-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete(meeting.id);
-                      }}
-                    >
-                      <TrashIcon className="size-3 text-muted-foreground" />
-                    </Button>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {canSaveRecap(meeting) &&
+                        (meeting.recapDocumentId !== null ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-xs text-ok">
+                            <CheckCircle2Icon className="size-3" />
+                            Recap saved
+                          </span>
+                        ) : (
+                          <span className="rounded-full bg-accent px-2 py-0.5 text-xs text-muted-foreground">
+                            No Recap
+                          </span>
+                        ))}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(meeting.id);
+                        }}
+                      >
+                        <TrashIcon className="size-3 text-muted-foreground" />
+                      </Button>
+                    </div>
                   </button>
                 ))}
               </div>

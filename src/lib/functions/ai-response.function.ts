@@ -23,6 +23,7 @@ import { getActiveKnowledgeDocuments } from "../database/knowledge.action";
 import { buildKnowledgePrompt } from "../knowledge/grounding";
 import { findKnowledgeExcerpts } from "../knowledge/search";
 import { cleanAnswer } from "../meeting/answer";
+import { currentDateLine } from "../current-date";
 
 // fetchAIResponse reports request failures as text chunks rather than throwing.
 const ERROR_CHUNK_PREFIXES = [
@@ -104,7 +105,13 @@ function buildEnhancedSystemPrompt(
   // Add markdown formatting instructions
   prompts.push(MARKDOWN_FORMATTING_INSTRUCTIONS);
 
-  return [prompts.join(" "), knowledgeSection, meetingContext, webResults]
+  return [
+    prompts.join(" "),
+    currentDateLine(),
+    knowledgeSection,
+    meetingContext,
+    webResults,
+  ]
     .filter(Boolean)
     .join("\n\n");
 }

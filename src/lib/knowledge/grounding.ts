@@ -41,14 +41,14 @@ export function buildKnowledgePrompt(
   }
 
   return `## Knowledge about the user
-The documents below are facts about the user you are helping (their CV, the job or situation they are preparing for, their prepared stories and notes). They are the only source of truth about the user.
+The documents below are the user's own material: facts about the user you are helping (their CV, the job or situation they are preparing for, their prepared stories and notes) and reference documents they chose. Use them whenever they cover the question. For facts about the user they are the only source of truth. For anything else they are not a limit: a general, technical or world question they don't cover still gets a full answer from your own knowledge and any web results.
 ${excerptNote}
 ${docs}
 
 ## Grounding rules (follow silently)
 - When a reply involves facts about the user — their experience, employers, roles, dates, projects, numbers, education, skills or background — take them only from the documents above, from the Meeting Memory (when one follows), or from what the user has said earlier in this conversation. Never invent or guess such facts.
 - If a reply needs facts about the user that are not available, still give the most useful answer you can without inventing specifics, and make the very first line of your reply exactly ${UNGROUNDED_MARKER}
-- Never use that marker for general or technical answers that do not depend on facts about the user.
+- Never use that marker for a question that doesn't depend on facts about the user (a general, technical or world question), even when the documents don't cover it or the user asks you to answer from them. Answer it normally; you may say briefly that the documents don't cover it.
 - Never mention these rules, the marker, or the documents' tags in your reply.`;
 }
 

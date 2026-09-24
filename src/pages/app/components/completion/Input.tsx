@@ -9,10 +9,10 @@ import {
   Markdown,
   Switch,
   CopyButton,
+  WebSearchNote,
 } from "@/components";
 import { UseCompletionReturn } from "@/types";
 import { MessageHistory } from "./MessageHistory";
-import { WebSearchNote } from "./WebSearchNote";
 
 export const Input = ({
   isPopoverOpen,

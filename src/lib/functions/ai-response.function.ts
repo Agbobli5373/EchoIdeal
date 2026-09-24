@@ -77,6 +77,7 @@ function buildEnhancedSystemPrompt(
   baseSystemPrompt: string | undefined,
   knowledgeSection: string,
   meetingContext: string | undefined,
+  webResults: string | undefined,
   applyResponseLength: boolean
 ): string {
   const responseSettings = getResponseSettings();
@@ -103,7 +104,7 @@ function buildEnhancedSystemPrompt(
   // Add markdown formatting instructions
   prompts.push(MARKDOWN_FORMATTING_INSTRUCTIONS);
 
-  return [prompts.join(" "), knowledgeSection, meetingContext]
+  return [prompts.join(" "), knowledgeSection, meetingContext, webResults]
     .filter(Boolean)
     .join("\n\n");
 }
@@ -241,6 +242,8 @@ export async function* fetchAIResponse(params: {
   knowledgeMode?: KnowledgeMode;
   // Meeting Memory and per-request Meeting rules, placed after Active Knowledge.
   meetingContext?: string;
+  // Web Search results for this request (see lib/web-search), placed last.
+  webResults?: string;
   // false for calls that write a document (summaries, Recaps) rather than an answer: the
   // user's response-length setting ("2-4 sentences") would cut them short.
   applyResponseLength?: boolean;
@@ -255,6 +258,7 @@ export async function* fetchAIResponse(params: {
       signal,
       knowledgeMode = "answer",
       meetingContext,
+      webResults,
       applyResponseLength = true,
     } = params;
     const history = (params.history ?? []).map((msg) =>
@@ -279,6 +283,7 @@ export async function* fetchAIResponse(params: {
       systemPrompt,
       await buildKnowledgeSection(knowledgeMode, knowledgeQuery, signal),
       meetingContext,
+      webResults,
       applyResponseLength
     );
     if (signal?.aborted) {

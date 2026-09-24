@@ -5,6 +5,9 @@ import {
   Button,
   Markdown,
   Textarea,
+  WebSearchNote,
+  WebSearchToggle,
+  WEB_SEARCH_SETUP_PATH,
 } from "@/components";
 import { getConversationById } from "@/lib";
 import { ChatConversation } from "@/types";
@@ -199,6 +202,12 @@ const View = () => {
                       }`}
                     >
                       <Markdown>{message.content}</Markdown>
+                      {!isUser &&
+                        completion.webSearch?.messageId === message.id && (
+                          <WebSearchNote
+                            status={completion.webSearch.status}
+                          />
+                        )}
                     </Card>
                     <Badge
                       variant="outline"
@@ -222,6 +231,12 @@ const View = () => {
               </div>
             );
           })}
+          {completion.webSearch?.status.state === "searching" && (
+            <p className="flex items-center gap-2 pl-10 text-xs text-muted-foreground animate-pulse">
+              <Loader2 className="size-3 animate-spin" />
+              Searching the web...
+            </p>
+          )}
           <div ref={completion.messagesEndRef} />
         </div>
       )}
@@ -272,6 +287,9 @@ const View = () => {
                     captureScreenshot={completion.captureScreenshot}
                     isScreenshotLoading={completion.isScreenshotLoading}
                     disabled={!supportsImages}
+                  />
+                  <WebSearchToggle
+                    onSetUp={() => navigate(WEB_SEARCH_SETUP_PATH)}
                   />
                 </div>
 

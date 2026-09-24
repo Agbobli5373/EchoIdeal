@@ -28,7 +28,11 @@ import {
 } from "@/lib/meeting";
 import { addMeetingEntry } from "@/lib/database/meetings.action";
 import { Message } from "@/types/completion";
-import type { WebSearchStatus } from "@/lib/web-search";
+import {
+  lastUserQuestion,
+  webSearchSection,
+  WebSearchStatus,
+} from "@/lib/web-search";
 
 // During a Meeting, typed requests and Screen Captures carry Meeting Memory instead of the
 // whole typed thread; only its latest exchange goes along, for "shorter" / "explain that".
@@ -36,26 +40,14 @@ async function meetingAwareRequest(
   systemPrompt: string | undefined,
   images: string[],
   history: Message[],
-  ai: MemoryAI,
-  // For a live Assessment's Web Search.
-  webSearch: {
-    question?: string;
-    signal?: AbortSignal;
-    onWebSearch?: (status: WebSearchStatus) => void;
-  } = {}
+  ai: MemoryAI
 ) {
   const meeting = activeMeetingStore.get();
   if (!meeting) {
     return { systemPrompt, meetingContext: undefined, imagesBase64: images, history };
   }
   return {
-    ...(await prepareMeetingRequest({
-      meeting,
-      systemPrompt,
-      images,
-      ai,
-      ...webSearch,
-    })),
+    ...(await prepareMeetingRequest({ meeting, systemPrompt, images, ai })),
     history: history.slice(-2),
   };
 }
@@ -119,8 +111,23 @@ export const useCompletion = () => {
   const [isFilesPopoverOpen, setIsFilesPopoverOpen] = useState(false);
   const [isScreenshotLoading, setIsScreenshotLoading] = useState(false);
   const [keepEngaged, setKeepEngaged] = useState(false);
-  // The current answer's Web Search, in a live Assessment.
+  // The current answer's Web Search.
   const [webSearch, setWebSearch] = useState<WebSearchStatus | null>(null);
+
+  // Searches the web for this request when Web Search is on; progress shows while it's current.
+  const searchWebFor = useCallback(
+    (
+      requestId: string,
+      params: Omit<Parameters<typeof webSearchSection>[0], "onStatus">
+    ) =>
+      webSearchSection({
+        ...params,
+        onStatus: (status) => {
+          if (currentRequestIdRef.current === requestId) setWebSearch(status);
+        },
+      }),
+    []
+  );
   const inputRef = useRef<HTMLInputElement | null>(null);
   const isProcessingScreenshotRef = useRef(false);
   const screenshotConfigRef = useRef(screenshotConfiguration);
@@ -281,23 +288,22 @@ export const useCompletion = () => {
             systemPrompt || undefined,
             imagesBase64,
             messageHistory,
-            ai,
-            {
-              question: effectiveInput,
-              signal,
-              onWebSearch: (status) => {
-                if (currentRequestIdRef.current === requestId) {
-                  setWebSearch(status);
-                }
-              },
-            }
+            ai
           );
+          const webResults = await searchWebFor(requestId, {
+            ai,
+            images: request.imagesBase64,
+            question: effectiveInput,
+            previousQuestion: lastUserQuestion(messageHistory),
+            signal,
+          });
           // Use the fetchAIResponse function with signal
           for await (const chunk of fetchAIResponse({
             provider: ai.provider,
             selectedProvider: selectedAIProvider,
             systemPrompt: request.systemPrompt,
             meetingContext: request.meetingContext,
+            webResults: webResults ?? undefined,
             history: request.history,
             userMessage: effectiveInput,
             imagesBase64: request.imagesBase64,
@@ -739,17 +745,15 @@ export const useCompletion = () => {
               systemPrompt || undefined,
               [base64],
               messageHistory,
-              ai,
-              {
-                question: prompt,
-                signal,
-                onWebSearch: (status) => {
-                  if (currentRequestIdRef.current === requestId) {
-                    setWebSearch(status);
-                  }
-                },
-              }
+              ai
             );
+            const webResults = await searchWebFor(requestId, {
+              ai,
+              images: request.imagesBase64,
+              question: prompt,
+              previousQuestion: lastUserQuestion(messageHistory),
+              signal,
+            });
 
             // Use the fetchAIResponse function with image and signal
             for await (const chunk of fetchAIResponse({
@@ -757,6 +761,7 @@ export const useCompletion = () => {
               selectedProvider: selectedAIProvider,
               systemPrompt: request.systemPrompt,
               meetingContext: request.meetingContext,
+              webResults: webResults ?? undefined,
               history: request.history,
               userMessage: prompt,
               imagesBase64: request.imagesBase64,

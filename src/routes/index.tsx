@@ -6,6 +6,7 @@ import {
 } from "react-router-dom";
 import {
   App,
+  Home,
   Prompts,
   Knowledge,
   ViewChat,
@@ -24,7 +25,7 @@ import { DashboardLayout } from "@/layouts";
 
 // Pages that were renamed, merged or split, and where they live now.
 const REDIRECTS: Record<string, string> = {
-  "/dashboard": "/chats",
+  "/dashboard": "/home",
   "/system-prompts": "/prompts",
   "/responses": "/prompts",
   "/dev-space": "/ai-and-speech",
@@ -39,6 +40,7 @@ export default function AppRoutes() {
       <Routes>
         <Route path="/" element={<App />} />
         <Route element={<DashboardLayout />}>
+          <Route path="/home" element={<Home />} />
           <Route path="/meetings" element={<Meetings />} />
           <Route path="/meetings/:meetingId" element={<MeetingView />} />
           <Route path="/knowledge" element={<Knowledge />} />

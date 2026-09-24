@@ -197,7 +197,7 @@ pub fn create_dashboard_window<R: Runtime>(
 ) -> Result<WebviewWindow<R>, tauri::Error> {
     let material = dashboard_material();
     let base_builder =
-        WebviewWindowBuilder::new(app, "dashboard", tauri::WebviewUrl::App("/chats".into()))
+        WebviewWindowBuilder::new(app, "dashboard", tauri::WebviewUrl::App("/home".into()))
             .title("EchoIdeal - Dashboard")
             .center()
             .inner_size(1100.0, 720.0)

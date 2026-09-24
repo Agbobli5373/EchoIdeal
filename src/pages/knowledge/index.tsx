@@ -191,7 +191,10 @@ const Knowledge = () => {
         </div>
       )}
 
-      <Card className="shadow-none p-4 gap-3 !bg-black/5 dark:!bg-white/5 border-transparent">
+      <Card
+        id="budget"
+        className="shadow-none p-4 gap-3 !bg-black/5 dark:!bg-white/5 border-transparent"
+      >
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-medium">Knowledge Budget</p>

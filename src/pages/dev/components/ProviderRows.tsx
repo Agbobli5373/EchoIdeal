@@ -23,7 +23,6 @@ type SelectedProvider = {
 export const ProviderRows = ({
   idPrefix,
   providerDesc,
-  providerKeywords,
   providers,
   selected,
   onSelect,
@@ -32,7 +31,6 @@ export const ProviderRows = ({
   /** "ai" or "stt": rows are anchored as ai-provider, ai-key, stt-provider… */
   idPrefix: string;
   providerDesc: string;
-  providerKeywords: string;
   providers: TYPE_PROVIDER[];
   selected: SelectedProvider;
   onSelect: (selected: SelectedProvider) => void;
@@ -74,7 +72,6 @@ export const ProviderRows = ({
             )}
           </>
         }
-        keywords={providerKeywords}
         control={
           <Selection
             selected={selected?.provider}
@@ -102,7 +99,6 @@ export const ProviderRows = ({
           id={`${idPrefix}-${variable.key.replace(/_/g, "-")}`}
           title={sentenceCase(variable.key)}
           desc={`The ${variable.key.replace(/_/g, " ")} to use with ${providerName}.`}
-          keywords={variable.key.replace(/_/g, " ")}
           control={
             <Input
               className="h-8 w-60"
@@ -120,7 +116,6 @@ export const ProviderRows = ({
           id={`${idPrefix}-key`}
           title="API key"
           desc={`Your ${providerName} key. It’s stored on this device and never shared.`}
-          keywords="api key token secret"
           control={
             <>
               <Input

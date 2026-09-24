@@ -11,6 +11,15 @@ import {
   SettingsRow,
 } from "@/components";
 import { UseSettingsReturn } from "@/types";
+import { defineSettings } from "@/lib/settings-index";
+
+// Registered for settings search (see lib/settings-index).
+const SETTINGS = defineSettings("/general", {
+  "delete-chats": {
+    title: "Delete chat history",
+    keywords: "clear remove chats conversations history",
+  },
+});
 
 export const DeleteChats = ({
   handleDeleteAllChatsConfirm,
@@ -35,8 +44,7 @@ export const DeleteChats = ({
   return (
     <>
       <SettingsRow
-        id="delete-chats"
-        title="Delete chat history"
+        {...SETTINGS["delete-chats"]}
         desc={
           result === "deleted"
             ? "Every Chat was deleted. Meetings and Knowledge are still here."
@@ -44,7 +52,7 @@ export const DeleteChats = ({
               ? "Couldn’t delete your Chats. Try again."
               : "Removes every Chat. Meetings and Knowledge stay."
         }
-        keywords="clear remove chats conversations history"
+
         control={
           <Button
             variant="outline"

@@ -17,6 +17,7 @@ import {
   Appearance,
   Privacy,
   General,
+  About,
   Chats,
   Meetings,
   MeetingView,
@@ -57,6 +58,7 @@ export default function AppRoutes() {
           <Route path="/appearance" element={<Appearance />} />
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/general" element={<General />} />
+          <Route path="/about" element={<About />} />
           {Object.entries(REDIRECTS).map(([from, to]) => (
             <Route
               key={from}

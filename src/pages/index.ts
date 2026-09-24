@@ -11,5 +11,6 @@ export { default as ScreenCapture } from "./screenshot";
 export { default as Appearance } from "./appearance";
 export { default as Privacy } from "./privacy";
 export { default as General } from "./general";
+export { default as About } from "./about";
 export { default as Meetings } from "./meetings";
 export { default as MeetingView } from "./meetings/components/MeetingView";

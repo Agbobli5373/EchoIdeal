@@ -9,9 +9,9 @@ import {
   Input,
   Textarea,
 } from "@/components";
-import { AlertTriangle, ShieldIcon } from "lucide-react";
+import { AlertTriangle, SearchIcon, ShieldIcon } from "lucide-react";
 import { useEffect, useState } from "react";
-import { estimateTokens } from "@/lib/knowledge";
+import { estimateTokens, SEARCHED_PASSAGES_TOKENS } from "@/lib/knowledge";
 
 const EDITOR_COPY = {
   paste: {
@@ -221,3 +221,82 @@ export const PrivacyConfirmDialog = ({
     </DialogContent>
   </Dialog>
 );
+
+/**
+ * Offered when switching on a document too large for the Knowledge Budget:
+ * search it instead, or set up embeddings first when they're off.
+ */
+export const SearchInsteadDialog = ({
+  isOpen,
+  onOpenChange,
+  documentName,
+  documentTokens,
+  embeddingsModel,
+  onSearch,
+  onSetUp,
+}: {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  documentName: string;
+  documentTokens: number;
+  /** e.g. "OpenAI text-embedding-3-small", or null when embeddings are off. */
+  embeddingsModel: string | null;
+  /** Starts indexing; progress shows on the document's row. */
+  onSearch: () => void;
+  onSetUp: () => void;
+}) => {
+  const handleSearch = () => {
+    onOpenChange(false);
+    onSearch();
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent showCloseButton={false}>
+        <DialogHeader>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10">
+              <SearchIcon className="h-5 w-5 text-primary" />
+            </div>
+            <div className="flex-1">
+              <DialogTitle>Too large to send in full</DialogTitle>
+              <DialogDescription className="mt-1">
+                "{documentName}" is about {documentTokens.toLocaleString()}{" "}
+                tokens, more than your Knowledge Budget has room for.
+              </DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
+        <div className="space-y-2 py-3 text-sm text-muted-foreground">
+          <p>
+            You can search it instead. It's split into passages, and each
+            question sends only the ones that best match it, up to about{" "}
+            {SEARCHED_PASSAGES_TOKENS.toLocaleString()} tokens. A fact in a
+            passage that doesn't match may be missed.
+          </p>
+          {embeddingsModel ? (
+            <p>
+              Its text is sent to {embeddingsModel} to be indexed, and each
+              question is sent there to find its passages.
+            </p>
+          ) : (
+            <p>
+              Searching needs an Embeddings provider, which you can set up in AI
+              and Speech.
+            </p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          {embeddingsModel ? (
+            <Button onClick={handleSearch}>Search it</Button>
+          ) : (
+            <Button onClick={onSetUp}>Set up embeddings</Button>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};

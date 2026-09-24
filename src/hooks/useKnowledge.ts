@@ -1,15 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  assertSearchFits,
   createKnowledgeDocument,
   deleteKnowledgeDocument,
   getAllKnowledgeDocuments,
+  getKnowledgeIndexes,
+  KnowledgeIndex,
   setKnowledgeDocumentActive,
+  setKnowledgeDocumentSearched,
   updateKnowledgeDocument,
 } from "@/lib/database";
 import {
-  estimateTokens,
+  activeKnowledgeTokens,
+  embeddingModelKey,
   extractKnowledgeText,
+  getEmbeddingsConfig,
   getKnowledgeBudget,
+  indexKnowledgeDocument,
+  KnowledgeBudgetError,
   MIN_KNOWLEDGE_BUDGET_TOKENS,
   saveKnowledgeBudget,
   transcribeImageWithProvider,
@@ -28,11 +36,31 @@ export const useKnowledge = () => {
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [budget, setBudgetState] = useState<number>(getKnowledgeBudget);
+  const [indexes, setIndexes] = useState<KnowledgeIndex[]>([]);
+  // The embeddings model in use, or null when embeddings are off.
+  const [embeddingsModel, setEmbeddingsModel] = useState(() =>
+    embeddingModelKey(getEmbeddingsConfig())
+  );
+  // A document too large to send in full, offered to be searched instead.
+  const [searchOffer, setSearchOffer] = useState<KnowledgeDocument | null>(
+    null
+  );
+  const [indexing, setIndexing] = useState<{
+    documentId: number;
+    done: number;
+    total: number;
+  } | null>(null);
 
   const fetchDocuments = useCallback(async () => {
     try {
       setIsLoading(true);
-      setDocuments(await getAllKnowledgeDocuments());
+      const [docs, idx] = await Promise.all([
+        getAllKnowledgeDocuments(),
+        getKnowledgeIndexes(),
+      ]);
+      setDocuments(docs);
+      setIndexes(idx);
+      setEmbeddingsModel(embeddingModelKey(getEmbeddingsConfig()));
     } catch (err) {
       setError(errorMessage(err, "Failed to load knowledge documents"));
     } finally {
@@ -45,11 +73,48 @@ export const useKnowledge = () => {
   }, [fetchDocuments]);
 
   const activeTokens = useMemo(
-    () =>
-      documents
-        .filter((doc) => doc.is_active)
-        .reduce((sum, doc) => sum + estimateTokens(doc.content), 0),
+    () => activeKnowledgeTokens(documents.filter((doc) => doc.is_active)),
     [documents]
+  );
+
+  /** How many passages document `id` has for the current embeddings model. */
+  const passageCount = useCallback(
+    (id: number) =>
+      indexes.find(
+        (i) => i.document_id === id && i.embedding_model === embeddingsModel
+      )?.count ?? 0,
+    [indexes, embeddingsModel]
+  );
+
+  const index = useCallback(async (document: KnowledgeDocument) => {
+    setIndexing({ documentId: document.id, done: 0, total: 0 });
+    try {
+      await indexKnowledgeDocument(
+        document,
+        getEmbeddingsConfig(),
+        (done, total) => setIndexing({ documentId: document.id, done, total })
+      );
+    } finally {
+      setIndexing(null);
+    }
+  }, []);
+
+  // A Searched Document's passages come from its text, so new text is indexed again.
+  const reindexIfSearched = useCallback(
+    async (id: number) => {
+      const doc = (await getAllKnowledgeDocuments()).find((d) => d.id === id);
+      if (!doc?.is_searched || !embeddingModelKey(getEmbeddingsConfig())) {
+        return;
+      }
+      try {
+        await index(doc);
+      } catch (err) {
+        throw new Error(
+          `Saved, but it couldn't be indexed again, so it isn't searched until it is: ${errorMessage(err, "unknown error")}`
+        );
+      }
+    },
+    [index]
   );
 
   const run = useCallback(
@@ -133,23 +198,63 @@ export const useKnowledge = () => {
           content,
           source_type: sourceType,
         });
+        await reindexIfSearched(id);
       }, "Failed to replace document"),
-    [run, transcribeImage]
+    [run, transcribeImage, reindexIfSearched]
   );
 
   const updateDocument = useCallback(
     (id: number, input: { name: string; content: string }) =>
-      run(() => updateKnowledgeDocument(id, input), "Failed to save document"),
-    [run]
+      run(async () => {
+        await updateKnowledgeDocument(id, input);
+        await reindexIfSearched(id);
+      }, "Failed to save document"),
+    [run, reindexIfSearched]
   );
 
+  // Switching on a document too large for the budget offers to search it instead.
   const setActive = useCallback(
-    (id: number, isActive: boolean) =>
-      run(
-        () => setKnowledgeDocumentActive(id, isActive),
-        "Failed to update document"
-      ),
-    [run]
+    async (id: number, isActive: boolean) => {
+      let offer = false;
+      const ok = await run(async () => {
+        try {
+          await setKnowledgeDocumentActive(id, isActive);
+        } catch (err) {
+          if (!(err instanceof KnowledgeBudgetError && err.searchable)) {
+            throw err;
+          }
+          offer = true;
+        }
+      }, "Failed to update document");
+      if (offer) {
+        setSearchOffer(documents.find((doc) => doc.id === id) ?? null);
+      }
+      return ok && !offer;
+    },
+    [run, documents]
+  );
+
+  /** Indexes document `id` if needed and switches it on as a Searched Document. */
+  const searchDocument = useCallback(
+    (id: number) =>
+      run(async () => {
+        await assertSearchFits(id);
+        const doc = documents.find((d) => d.id === id);
+        if (!doc) throw new Error("Knowledge document not found");
+        if (passageCount(id) === 0) await index(doc);
+        await setKnowledgeDocumentSearched(id);
+      }, "Failed to search document"),
+    [run, documents, passageCount, index]
+  );
+
+  const reindexDocument = useCallback(
+    (id: number) =>
+      run(async () => {
+        const doc = documents.find((d) => d.id === id);
+        if (!doc) throw new Error("Knowledge document not found");
+        await index(doc);
+      }, "Failed to index document"),
+    [run, documents, index]
   );
 
   const deleteDocument = useCallback(
@@ -189,6 +294,13 @@ export const useKnowledge = () => {
     budget,
     activeTokens,
     setBudget,
+    embeddingsModel,
+    passageCount,
+    indexing,
+    searchOffer,
+    closeSearchOffer: () => setSearchOffer(null),
+    searchDocument,
+    reindexDocument,
     addFromFile,
     addFromText,
     replaceFromFile,

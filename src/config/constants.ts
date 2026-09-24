@@ -23,6 +23,7 @@ export const STORAGE_KEYS = {
   KNOWLEDGE_BUDGET_TOKENS: "knowledge_budget_tokens",
   KNOWLEDGE_ACTIVE_COUNT: "knowledge_active_count",
   KNOWLEDGE_PRIVACY_ACKNOWLEDGED: "knowledge_privacy_acknowledged",
+  EMBEDDINGS_PROVIDER: "embeddings_provider",
 } as const;
 
 // Max number of files that can be attached to a message

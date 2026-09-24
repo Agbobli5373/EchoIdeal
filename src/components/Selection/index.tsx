@@ -6,6 +6,7 @@ import {
   SelectValue,
 } from "@/components";
 import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export const Selection = ({
   selected,
@@ -14,6 +15,8 @@ export const Selection = ({
   placeholder,
   isLoading = false,
   disabled = false,
+  className,
+  size = "default",
 }: {
   selected?: string;
   onChange: (value: any) => void;
@@ -21,12 +24,18 @@ export const Selection = ({
   placeholder?: string;
   isLoading?: boolean;
   disabled?: boolean;
+  className?: string;
+  size?: "sm" | "default";
 }) => {
   return (
     <Select value={selected || ""} onValueChange={(value) => onChange(value)}>
       <SelectTrigger
+        size={size}
         disabled={isLoading || disabled}
-        className="shadow-none w-full h-11 border-1 border-input/50 focus:border-primary/50 transition-colors"
+        className={cn(
+          "shadow-none w-full h-11 border-1 border-input/50 focus:border-primary/50 transition-colors",
+          className
+        )}
       >
         {isLoading ? (
           <div className="flex items-center gap-2">

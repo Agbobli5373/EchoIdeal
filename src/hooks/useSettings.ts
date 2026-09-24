@@ -81,12 +81,15 @@ export const useSettings = () => {
     }
   }, [selectedSttProvider.provider]);
 
-  const handleDeleteAllChatsConfirm = async () => {
+  // Deletes every Chat; Meetings and Knowledge are kept. Reports success.
+  const handleDeleteAllChatsConfirm = async (): Promise<boolean> => {
     try {
       await deleteAllConversations();
       setShowDeleteConfirmDialog(false);
+      return true;
     } catch (error) {
       console.error("Failed to delete all conversations:", error);
+      return false;
     }
   };
 

@@ -1,6 +1,12 @@
 import { useState, useEffect } from "react";
-import { Button, Card, Switch } from "@/components";
-import { RotateCcw, AlertCircle, Keyboard } from "lucide-react";
+import {
+  Button,
+  Keys,
+  SettingsGroup,
+  SettingsRow,
+  Switch,
+} from "@/components";
+import { RotateCcw, AlertCircle } from "lucide-react";
 import {
   getAllShortcutActions,
   getShortcutsConfig,
@@ -116,156 +122,104 @@ export const ShortcutManager = () => {
     }
   };
 
-  return (
-    <div id="shortcuts" className="space-y-4">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-md lg:text-lg font-semibold flex items-center gap-2">
-            <Keyboard className="size-5 lg:size-5" />
-            Keyboard Shortcuts
-          </h3>
-          <p className="text-sm text-muted-foreground">
-            {actions.length} shortcut{actions.length !== 1 ? "s" : ""}{" "}
-            configured
-          </p>
-        </div>
-        <div className="flex gap-2">
-          {/* COMMENTED OUT: Custom shortcut creation */}
-          {/* {(
-            <Button
-              size="sm"
-              variant="default"
-              onClick={() => setIsCreatingNew(!isCreatingNew)}
-              disabled={isApplying}
-              title="Create custom shortcut"
-            >
-              <Plus className="h-4 w-4" />
-              New
-            </Button>
-          )} */}
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleReset}
-            disabled={isApplying}
-            title="Reset all shortcuts to platform defaults"
-          >
-            <RotateCcw className="size-3 lg:size-4" />
-            Reset
-          </Button>
-        </div>
-      </div>
+  // "ctrl+shift+m" → ["Ctrl", "Shift", "M"]
+  const keysOf = (action: ShortcutAction, key: string) => {
+    const keys = formatShortcutKeyForDisplay(key)
+      .split(" + ")
+      .filter(Boolean);
+    return action.id === "move_window" ? [...keys, "Arrow keys"] : keys;
+  };
 
-      {/* Conflicts Alert */}
+  return (
+    <SettingsGroup
+      title="Shortcuts"
+      meta={
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={handleReset}
+          disabled={isApplying}
+          title="Reset all shortcuts to platform defaults"
+          className="h-7 gap-1.5 text-muted-foreground"
+        >
+          <RotateCcw className="size-3.5" />
+          Reset all
+        </Button>
+      }
+    >
       {conflicts.length > 0 && (
-        <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md">
-          <div className="flex items-start gap-2">
-            <AlertCircle className="size-3 lg:size-4 text-destructive mt-0.5" />
-            <div className="flex-1">
-              {conflicts.map((conflict, i) => (
-                <p key={i} className="text-sm text-destructive">
-                  {conflict}
-                </p>
-              ))}
-            </div>
+        <div className="flex items-start gap-2 bg-destructive/10 px-4 py-3">
+          <AlertCircle className="mt-0.5 size-4 text-destructive" />
+          <div className="flex-1">
+            {conflicts.map((conflict, i) => (
+              <p key={i} className="text-sm text-destructive">
+                {conflict}
+              </p>
+            ))}
           </div>
         </div>
       )}
 
-      {/* Flat Shortcuts List */}
-      <div className="space-y-3">
-        {actions.map((action) => {
-          const binding = bindings[action.id] || {
-            action: action.id,
-            key: getPlatformDefaultKey(action),
-            enabled: true,
-          };
-          const isEditing = editingAction === action.id;
+      {actions.map((action) => {
+        const binding = bindings[action.id] || {
+          action: action.id,
+          key: getPlatformDefaultKey(action),
+          enabled: true,
+        };
+        const isEditing = editingAction === action.id;
 
-          return (
-            <Card
-              key={action.id}
-              className={`shadow-none p-4 border border-border/70 rounded-xl ${
-                !binding.enabled ? "opacity-50" : ""
-              }`}
-            >
-              {isEditing ? (
-                // EDITING MODE - Show recorder immediately
-                <div className="space-y-3">
-                  <div>
-                    <p className="font-medium text-xs lg:text-sm">
-                      {action.name}
-                    </p>
-                    <p className="text-[10px] lg:text-xs text-muted-foreground">
-                      {action.description}
-                    </p>
-                  </div>
-                  <ShortcutRecorder
-                    actionId={action.id}
-                    onSave={(key) => handleSaveShortcut(action.id, key)}
-                    onCancel={() => {
-                      setEditingAction(null);
+        return (
+          <SettingsRow
+            key={action.id}
+            id={`sc-${action.id.replace(/_/g, "-")}`}
+            title={action.name}
+            desc={action.description}
+            keywords={`shortcut hotkey keyboard ${action.id.replace(/_/g, " ")}`}
+            stacked={isEditing}
+            control={
+              isEditing ? undefined : (
+                <>
+                  <span className={binding.enabled ? "" : "opacity-50"}>
+                    <Keys keys={keysOf(action, binding.key)} />
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setEditingAction(action.id);
                       setConflicts([]);
                     }}
                     disabled={isApplying}
+                    title="Change this shortcut"
+                  >
+                    Change
+                  </Button>
+                  <Switch
+                    checked={binding.enabled}
+                    onCheckedChange={(enabled) =>
+                      handleToggleEnabled(action.id, enabled)
+                    }
+                    disabled={isApplying}
+                    aria-label={`${action.name} shortcut on`}
                   />
-                </div>
-              ) : (
-                // VIEW MODE - Show shortcut with controls
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center">
-                    <Switch
-                      checked={binding.enabled}
-                      onCheckedChange={(enabled) =>
-                        handleToggleEnabled(action.id, enabled)
-                      }
-                      disabled={isApplying}
-                    />
-                  </div>
-
-                  <div className="flex-1">
-                    <p className="font-medium text-xs lg:text-sm mb-1">
-                      {action.name}
-                    </p>
-                    <p className="text-[10px] lg:text-xs text-muted-foreground">
-                      {action.description}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <code className="px-3 py-1.5 bg-muted rounded text-xs lg:text-sm font-mono">
-                      {action.id === "move_window"
-                        ? `${formatShortcutKeyForDisplay(
-                            binding.key
-                          )} + (← ↑ ↓ →)`
-                        : formatShortcutKeyForDisplay(binding.key)}
-                    </code>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setEditingAction(action.id);
-                        setConflicts([]);
-                      }}
-                      disabled={isApplying}
-                      className="min-w-[80px]"
-                      title="Change this shortcut"
-                    >
-                      Change
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </Card>
-          );
-        })}
-      </div>
-
-      {/* Footer Note */}
-      <p className="text-xs text-muted-foreground text-center pt-2">
-        💡 Shortcuts work globally, even when the app is hidden
-      </p>
-    </div>
+                </>
+              )
+            }
+          >
+            {isEditing && (
+              <ShortcutRecorder
+                actionId={action.id}
+                onSave={(key) => handleSaveShortcut(action.id, key)}
+                onCancel={() => {
+                  setEditingAction(null);
+                  setConflicts([]);
+                }}
+                disabled={isApplying}
+              />
+            )}
+          </SettingsRow>
+        );
+      })}
+    </SettingsGroup>
   );
 };

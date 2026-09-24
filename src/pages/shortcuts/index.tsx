@@ -1,4 +1,5 @@
 import { CursorSelection, ShortcutManager } from "./components";
+import { SettingsGroup } from "@/components";
 import { PageLayout } from "@/layouts";
 
 const Shortcuts = () => {
@@ -7,13 +8,10 @@ const Shortcuts = () => {
       title="Shortcuts and Cursor"
       subtitle="Keys that work even when EchoIdeal isn’t focused."
     >
-      <div className="flex flex-col gap-6 pb-8">
-        {/* Cursor Selection */}
+      <SettingsGroup title="Cursor">
         <CursorSelection />
-
-        {/* Keyboard Shortcuts */}
-        <ShortcutManager />
-      </div>
+      </SettingsGroup>
+      <ShortcutManager />
     </PageLayout>
   );
 };

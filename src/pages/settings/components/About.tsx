@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { check, Update } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 import { Loader2 } from "lucide-react";
 import { Button, SettingsRow } from "@/components";
 import { useVersion } from "@/hooks";
@@ -62,6 +63,7 @@ export const About = () => {
         }
       });
       setState({ kind: "installed" });
+      await relaunch();
     } catch (error) {
       console.error("Failed to install update:", error);
       setState({ kind: "error", message: "The update didn’t install." });
@@ -79,7 +81,7 @@ export const About = () => {
       case "installing":
         return `Installing the update… ${state.percentage}%`;
       case "installed":
-        return "Updated. Quit and reopen EchoIdeal to finish.";
+        return "Updated. Restarting EchoIdeal…";
       case "error":
         return state.message;
       default:

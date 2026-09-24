@@ -115,7 +115,7 @@ export const ProviderRows = ({
         <SettingsRow
           id={`${idPrefix}-key`}
           title="API key"
-          desc={`Your ${providerName} key. It’s stored on this device and never shared.`}
+          desc={`${current?.isCustom ? "Your custom provider’s" : `Your ${providerName}`} key. It’s stored on this device and never shared.`}
           control={
             <>
               <Input

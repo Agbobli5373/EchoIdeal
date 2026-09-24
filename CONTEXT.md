@@ -25,8 +25,16 @@ The Knowledge Documents currently switched on; the only documents the AI draws o
 _Avoid_: Knowledge base, selected files
 
 **Knowledge Budget**:
-The maximum combined size of Active Knowledge; a document that would exceed it cannot be switched on.
+The maximum combined size of Active Knowledge sent with each question: documents sent in full, plus a fixed room for passages once any document is a Searched Document. A document that would exceed it cannot be sent in full.
 _Avoid_: Limit, context window
+
+**Searched Document**:
+An Active Knowledge Document too large for the Knowledge Budget, switched on so that each question sends only its passages that best match the question, rather than its full text. Requires an Embeddings Provider.
+_Avoid_: RAG, vector store, indexed file
+
+**Embeddings Provider**:
+The optional service, separate from the AI provider, that turns passages of Searched Documents and each question into vectors so matching passages can be found.
+_Avoid_: Vector provider, search provider
 
 **Recap**:
 A Knowledge Document generated from an ended Interview or Assessment. An Interview Recap lists the facts, numbers and stories the Candidate committed to and the topics the Interviewer probed; an Assessment Recap lists each problem and the solution submitted.
@@ -77,7 +85,7 @@ What the Candidate actually said, transcribed from their microphone; it takes pr
 _Avoid_: User message, mic transcript
 
 **Ungrounded Answer**:
-A Suggested Answer that needs facts about the Candidate (experience, projects, numbers, background) which neither Active Knowledge nor Meeting Memory provides, shown with a visible marker; general technical answers are never Ungrounded.
+A Suggested Answer that needs facts about the Candidate (experience, projects, numbers, background) which neither Active Knowledge (for a Searched Document, the passages sent with that question) nor Meeting Memory provides, shown with a visible marker; general technical answers are never Ungrounded.
 _Avoid_: Fallback answer, generic answer
 
 **Discrepancy**:

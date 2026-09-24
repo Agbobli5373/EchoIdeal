@@ -6,6 +6,9 @@ export interface KnowledgeDocument {
   source_type: KnowledgeSourceType;
   content: string;
   is_active: boolean;
+  // A Searched Document: active, but too large for the Knowledge Budget, so only the
+  // passages matching each question are sent.
+  is_searched: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -23,3 +26,9 @@ export interface UpdateKnowledgeDocumentInput {
 }
 
 export type KnowledgeMode = "answer" | "background" | "none";
+
+/** Passages sent from a Searched Document for one question, in document order. */
+export interface KnowledgeExcerpt {
+  name: string;
+  passages: string[];
+}

@@ -11,7 +11,12 @@ import { invoke } from "@tauri-apps/api/core";
 import { useApp } from "@/contexts";
 import { getAllKnowledgeDocuments } from "@/lib/database";
 import { extractVariables } from "@/lib/functions/common.function";
-import { estimateTokens, getKnowledgeBudget } from "@/lib/knowledge";
+import {
+  activeKnowledgeTokens,
+  embeddingModelKey,
+  getEmbeddingsConfig,
+  getKnowledgeBudget,
+} from "@/lib/knowledge";
 import type { KnowledgeDocument } from "@/types";
 
 export type ReadinessCheckId = "ai" | "stt" | "audio" | "knowledge";
@@ -41,6 +46,8 @@ type ReadinessState = {
 
 const ReadinessContext = createContext<ReadinessState | null>(null);
 
+const hasEmbeddings = () => embeddingModelKey(getEmbeddingsConfig()) !== null;
+
 /**
  * Whether the dashboard is ready for the next Meeting: an AI provider, a
  * speech provider, audio devices and Active Knowledge. It only advises;
@@ -61,6 +68,7 @@ export const ReadinessProvider = ({
   const { pathname } = useLocation();
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [budget, setBudget] = useState(getKnowledgeBudget);
+  const [embeddingsOn, setEmbeddingsOn] = useState(hasEmbeddings);
   const [devices, setDevices] = useState<{
     input: Device[];
     output: Device[];
@@ -75,6 +83,7 @@ export const ReadinessProvider = ({
     setDocuments(docs);
     setDevices({ input, output });
     setBudget(getKnowledgeBudget());
+    setEmbeddingsOn(hasEmbeddings());
   }, []);
 
   useEffect(() => {
@@ -190,12 +199,12 @@ export const ReadinessProvider = ({
             },
           };
 
-    // Active Knowledge: something switched on, within the Knowledge Budget.
+    // Active Knowledge: something switched on, within the Knowledge Budget, and
+    // embeddings set up when a document is searched.
     const active = documents.filter((doc) => doc.is_active);
-    const tokens = active.reduce(
-      (sum, doc) => sum + estimateTokens(doc.content),
-      0
-    );
+    const tokens = activeKnowledgeTokens(active);
+    const searchedWithoutEmbeddings =
+      !embeddingsOn && active.some((doc) => doc.is_searched);
     const usage = `${active.length} ${
       active.length === 1 ? "document" : "documents"
     } · ${tokens.toLocaleString()} of ${budget.toLocaleString()} tokens`;
@@ -219,14 +228,26 @@ export const ReadinessProvider = ({
               fix: { label: "Review", to: "/knowledge#budget" },
               meter: 1,
             }
-          : {
-              id: "knowledge",
-              label: "Active Knowledge",
-              ok: true,
-              value: usage,
-              fix: { label: "Manage", to: "/knowledge#budget" },
-              meter: tokens / budget,
-            };
+          : searchedWithoutEmbeddings
+            ? {
+                id: "knowledge",
+                label: "Active Knowledge",
+                ok: false,
+                value: `${usage}. Searched documents aren’t used while embeddings are off.`,
+                fix: {
+                  label: "Set up",
+                  to: "/ai-and-speech#embeddings-provider",
+                },
+                meter: tokens / budget,
+              }
+            : {
+                id: "knowledge",
+                label: "Active Knowledge",
+                ok: true,
+                value: usage,
+                fix: { label: "Manage", to: "/knowledge#budget" },
+                meter: tokens / budget,
+              };
 
     return [ai, stt, audio, knowledge];
   }, [
@@ -237,6 +258,7 @@ export const ReadinessProvider = ({
     devices,
     documents,
     budget,
+    embeddingsOn,
   ]);
 
   const readyCount = checks.filter((check) => check.ok).length;

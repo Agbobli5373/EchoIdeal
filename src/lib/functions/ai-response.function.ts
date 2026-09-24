@@ -5,7 +5,12 @@ import {
   getByPath,
   getStreamingContent,
 } from "./common.function";
-import { KnowledgeMode, Message, TYPE_PROVIDER } from "@/types";
+import {
+  KnowledgeExcerpt,
+  KnowledgeMode,
+  Message,
+  TYPE_PROVIDER,
+} from "@/types";
 import { fetch as tauriFetch } from "@tauri-apps/plugin-http";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -16,6 +21,7 @@ import { getResponseSettings, RESPONSE_LENGTHS, LANGUAGES } from "@/lib";
 import { MARKDOWN_FORMATTING_INSTRUCTIONS } from "@/config/constants";
 import { getActiveKnowledgeDocuments } from "../database/knowledge.action";
 import { buildKnowledgePrompt } from "../knowledge/grounding";
+import { findKnowledgeExcerpts } from "../knowledge/search";
 import { cleanAnswer } from "../meeting/answer";
 
 // fetchAIResponse reports request failures as text chunks rather than throwing.
@@ -32,11 +38,36 @@ export function isAIErrorText(text: string): boolean {
   return ERROR_CHUNK_PREFIXES.some((prefix) => text.startsWith(prefix));
 }
 
-async function buildKnowledgeSection(mode: KnowledgeMode): Promise<string> {
+// Searched Documents add the passages matching `query`, and only to answers:
+// summaries have no single question to match.
+async function buildKnowledgeSection(
+  mode: KnowledgeMode,
+  query: string,
+  signal?: AbortSignal
+): Promise<string> {
   if (mode === "none") return "";
   try {
-    return buildKnowledgePrompt(await getActiveKnowledgeDocuments(), mode);
+    const active = await getActiveKnowledgeDocuments();
+    const searched = active.filter((doc) => doc.is_searched);
+    let excerpts: KnowledgeExcerpt[] = [];
+    if (mode === "answer" && searched.length > 0) {
+      try {
+        excerpts = await findKnowledgeExcerpts(searched, query, signal);
+      } catch (error) {
+        if (signal?.aborted) throw error;
+        console.error(
+          "Failed to search Knowledge, answering without it:",
+          error
+        );
+      }
+    }
+    return buildKnowledgePrompt(
+      active.filter((doc) => !doc.is_searched),
+      mode,
+      excerpts
+    );
   } catch (error) {
+    if (signal?.aborted) return "";
     console.error("Failed to load Active Knowledge:", error);
     return "";
   }
@@ -237,12 +268,22 @@ export async function* fetchAIResponse(params: {
       return;
     }
 
+    // The previous question helps a follow-up like "and the second one?" find its passages.
+    const previousQuestion = [...history]
+      .reverse()
+      .find((msg) => msg.role === "user" && typeof msg.content === "string");
+    const knowledgeQuery = [previousQuestion?.content, userMessage]
+      .filter(Boolean)
+      .join("\n");
     const enhancedSystemPrompt = buildEnhancedSystemPrompt(
       systemPrompt,
-      await buildKnowledgeSection(knowledgeMode),
+      await buildKnowledgeSection(knowledgeMode, knowledgeQuery, signal),
       meetingContext,
       applyResponseLength
     );
+    if (signal?.aborted) {
+      return;
+    }
 
     // Check if we should use EchoIdeal API instead
     const useEchoIdealAPI = await shouldUseEchoIdealAPI();

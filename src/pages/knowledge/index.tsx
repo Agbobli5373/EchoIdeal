@@ -11,6 +11,7 @@ import {
 } from "@/components";
 import { useKnowledge } from "@/hooks";
 import { PageLayout } from "@/layouts";
+import { useNavigate } from "react-router-dom";
 import { defineSettings } from "@/lib/settings-index";
 
 // Registered for settings search (see lib/settings-index).
@@ -22,7 +23,12 @@ const SETTINGS = defineSettings("/knowledge", {
 });
 import { STORAGE_KEYS } from "@/config";
 import { safeLocalStorage } from "@/lib";
-import { estimateTokens, KNOWLEDGE_FILE_ACCEPT } from "@/lib/knowledge";
+import {
+  describeEmbeddingModel,
+  estimateTokens,
+  KNOWLEDGE_FILE_ACCEPT,
+  SEARCHED_PASSAGES_TOKENS,
+} from "@/lib/knowledge";
 import type { KnowledgeDocument, KnowledgeSourceType } from "@/types";
 import {
   BookOpenIcon,
@@ -34,6 +40,7 @@ import {
   MoreHorizontal,
   Pencil,
   RefreshCwIcon,
+  SearchIcon,
   ShieldIcon,
   Trash2,
 } from "lucide-react";
@@ -42,6 +49,7 @@ import {
   DeleteDocumentDialog,
   DocumentEditorDialog,
   PrivacyConfirmDialog,
+  SearchInsteadDialog,
 } from "./dialogs";
 
 const SOURCE_LABELS: Record<KnowledgeSourceType, string> = {
@@ -62,6 +70,13 @@ const Knowledge = () => {
     budget,
     activeTokens,
     setBudget,
+    embeddingsModel,
+    passageCount,
+    indexing,
+    searchOffer,
+    closeSearchOffer,
+    searchDocument,
+    reindexDocument,
     addFromFile,
     addFromText,
     replaceFromFile,
@@ -70,6 +85,7 @@ const Knowledge = () => {
     deleteDocument,
   } = useKnowledge();
 
+  const navigate = useNavigate();
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const replaceInputRef = useRef<HTMLInputElement>(null);
   const [replaceTargetId, setReplaceTargetId] = useState<number | null>(null);
@@ -129,6 +145,31 @@ const Knowledge = () => {
 
   const usage = Math.min(100, (activeTokens / budget) * 100);
   const activeCount = documents.filter((doc) => doc.is_active).length;
+  const searchedCount = documents.filter((doc) => doc.is_searched).length;
+
+  // What a Searched Document's row says about its passages, or indexing progress.
+  const searchStatus = (
+    doc: KnowledgeDocument
+  ): { text: string; warn?: boolean } | null => {
+    if (indexing?.documentId === doc.id) {
+      return {
+        text: indexing.total
+          ? `Indexing… ${indexing.done.toLocaleString()} of ${indexing.total.toLocaleString()} passages`
+          : "Splitting into passages…",
+      };
+    }
+    if (!doc.is_searched) return null;
+    if (!embeddingsModel) {
+      return { text: "Searched, but not used: embeddings are off", warn: true };
+    }
+    const count = passageCount(doc.id);
+    return count === 0
+      ? {
+          text: `Searched, but not indexed for ${describeEmbeddingModel(embeddingsModel)}. Index it again.`,
+          warn: true,
+        }
+      : { text: `Searched · ${count.toLocaleString()} passages` };
+  };
 
   return (
     <PageLayout
@@ -184,8 +225,9 @@ const Knowledge = () => {
         <ShieldIcon className="size-4 shrink-0 mt-0.5" />
         <p>
           Switched-on documents are sent to your selected AI provider with each
-          question. Upload .md, .txt, PDF or image files, or paste text. Files
-          are copied in; editing the original on disk won't change them.
+          question; a searched document sends only its matching passages. Upload
+          .md, .txt, PDF or image files, or paste text. Files are copied in;
+          editing the original on disk won't change them.
         </p>
       </div>
 
@@ -210,8 +252,10 @@ const Knowledge = () => {
             <p className="text-sm font-medium">Knowledge Budget</p>
             <p className="text-xs text-muted-foreground">
               {activeCount} active · about {activeTokens.toLocaleString()} of{" "}
-              {budget.toLocaleString()} tokens used. Documents over the budget
-              can't be switched on.
+              {budget.toLocaleString()} tokens used
+              {searchedCount > 0 &&
+                `, including ${SEARCHED_PASSAGES_TOKENS.toLocaleString()} for passages from ${searchedCount} searched ${searchedCount === 1 ? "document" : "documents"}`}
+              . A document too large for the budget can be searched instead.
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -263,12 +307,34 @@ const Knowledge = () => {
                 <FileTextIcon className="size-5 shrink-0 text-muted-foreground" />
               )}
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{doc.name}</p>
+                <p className="flex items-center gap-1.5 truncate text-sm font-medium">
+                  {doc.name}
+                  {doc.is_searched && (
+                    <SearchIcon
+                      className="size-3.5 shrink-0 text-muted-foreground"
+                      aria-label="Searched"
+                    />
+                  )}
+                </p>
                 <p className="truncate text-xs text-muted-foreground">
                   {SOURCE_LABELS[doc.source_type]} · about{" "}
                   {estimateTokens(doc.content).toLocaleString()} tokens ·
                   updated {doc.updated_at}
                 </p>
+                {(() => {
+                  const status = searchStatus(doc);
+                  return (
+                    status && (
+                      <p
+                        className={`truncate text-xs ${
+                          status.warn ? "text-warn" : "text-muted-foreground"
+                        }`}
+                      >
+                        {status.text}
+                      </p>
+                    )
+                  );
+                })()}
               </div>
               <Switch
                 checked={doc.is_active}
@@ -301,6 +367,12 @@ const Knowledge = () => {
                     <RefreshCwIcon className="size-4 mr-2" />
                     Replace from file
                   </DropdownMenuItem>
+                  {doc.is_searched && embeddingsModel && (
+                    <DropdownMenuItem onClick={() => reindexDocument(doc.id)}>
+                      <SearchIcon className="size-4 mr-2" />
+                      Index again
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem
                     variant="destructive"
                     onClick={() => setDeleteTarget(doc)}
@@ -335,6 +407,18 @@ const Knowledge = () => {
         onDelete={() =>
           deleteTarget ? deleteDocument(deleteTarget.id) : Promise.resolve(true)
         }
+      />
+
+      <SearchInsteadDialog
+        isOpen={searchOffer !== null}
+        onOpenChange={(open) => !open && closeSearchOffer()}
+        documentName={searchOffer?.name ?? ""}
+        documentTokens={searchOffer ? estimateTokens(searchOffer.content) : 0}
+        embeddingsModel={
+          embeddingsModel ? describeEmbeddingModel(embeddingsModel) : null
+        }
+        onSearch={() => searchOffer && searchDocument(searchOffer.id)}
+        onSetUp={() => navigate("/ai-and-speech#embeddings-provider")}
       />
 
       <PrivacyConfirmDialog

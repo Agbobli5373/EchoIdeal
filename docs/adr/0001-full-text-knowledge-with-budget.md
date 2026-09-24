@@ -1,5 +1,7 @@
 # Active Knowledge is sent in full, capped by a Knowledge Budget
 
+Amended by [0003](0003-searched-documents-with-optional-embeddings.md): a document too large for the budget can now be searched instead.
+
 Knowledge Documents are small, personal and high-value (a CV, a job description, a few prepared stories), so the full text of all Active Knowledge is included in every AI request instead of retrieving passages with embeddings. A hard Knowledge Budget (configurable; default about 12k tokens) prevents a document from being switched on when it would exceed it. Silent truncation is not allowed, because it would make the AI mark facts it never saw as Ungrounded.
 
 ## Considered Options

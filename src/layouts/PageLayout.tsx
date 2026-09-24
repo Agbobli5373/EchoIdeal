@@ -1,4 +1,4 @@
-import { PageHeader, ScrollArea } from "@/components";
+import { PageHeader, ScrollArea, useSettingsAnchor } from "@/components";
 
 export const PageLayout = ({
   children,
@@ -11,6 +11,8 @@ export const PageLayout = ({
   subtitle?: React.ReactNode;
   actions?: React.ReactNode;
 }) => {
+  useSettingsAnchor();
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader title={title} subtitle={subtitle} actions={actions} />

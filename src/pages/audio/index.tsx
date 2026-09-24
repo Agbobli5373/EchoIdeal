@@ -1,5 +1,6 @@
 import { AudioSelection } from "./components";
 import { PageLayout } from "@/layouts";
+import { SettingsGroup, SettingsRow } from "@/components";
 import { getPlatform } from "@/lib";
 
 const getOsInstructions = () => {
@@ -37,23 +38,36 @@ const Audio = () => {
       title="Audio"
       subtitle="What EchoIdeal listens to during a Meeting."
     >
-      <AudioSelection />
-
-      <div className="text-xs text-amber-600 bg-amber-500/10 p-3 rounded-md mb-4 space-y-2">
-        <p>
-          <strong>⚠️ If selected devices don't work:</strong> Please verify your
-          default system audio settings. Go to{" "}
-          <strong>{osInstructions.mic}</strong> for microphone and{" "}
-          <strong>{osInstructions.audio}</strong> for speakers/headphones.
-          Ensure the correct devices are set as default in your operating
-          system.
-        </p>
-        <p className="text-amber-600/80">
-          <strong>Note:</strong> If the selected device fails or is unavailable,
-          EchoIdeal will automatically fall back to your system's default audio
-          devices.
-        </p>
-      </div>
+      <SettingsGroup
+        more={{
+          id: "audio-more",
+          label: "Devices not working?",
+          children: (
+            <>
+              <SettingsRow
+                id="audio-defaults"
+                title="Check your system’s default devices"
+                desc={
+                  <>
+                    Microphone: {osInstructions.mic}. Speakers and headphones:{" "}
+                    {osInstructions.audio}. If a device you pick here fails or
+                    goes away, EchoIdeal falls back to the system default.
+                  </>
+                }
+                keywords="permission troubleshooting not working default device"
+              />
+              <SettingsRow
+                id="audio-check"
+                title="See which microphone is in use"
+                desc="Hover over the microphone button in the overlay; it shows the device it’s listening to."
+                keywords="verify active device"
+              />
+            </>
+          ),
+        }}
+      >
+        <AudioSelection />
+      </SettingsGroup>
     </PageLayout>
   );
 };

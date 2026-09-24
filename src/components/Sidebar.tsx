@@ -8,7 +8,7 @@ import type { MenuItem } from "@/hooks/useMenuItems";
 
 export const Sidebar = () => {
   const { version, isLoading } = useVersion();
-  const { sections, footerItems } = useMenuItems();
+  const { sections } = useMenuItems();
   const [query, setQuery] = useState("");
 
   const navigate = useNavigate();
@@ -137,22 +137,6 @@ export const Sidebar = () => {
           </p>
         )}
       </nav>
-
-      <div className="flex flex-col space-y-0.5 px-3 pb-4">
-        {footerItems.map((item, index) => (
-          <a
-            href={item.href}
-            onClick={item.action}
-            target="_blank"
-            rel="noopener noreferrer"
-            key={`${item.label}-${index}`}
-            className="flex w-full items-center gap-2.5 rounded px-3 py-2 text-[13px] text-muted-foreground transition-colors hover:bg-sidebar-accent/70 hover:text-foreground"
-          >
-            <item.icon className="size-3.5" />
-            {item.label}
-          </a>
-        ))}
-      </div>
     </aside>
   );
 };

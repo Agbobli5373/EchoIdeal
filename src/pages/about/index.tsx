@@ -62,11 +62,6 @@ const SETTINGS = defineSettings("/about", {
     group: "Copyright and licence",
     keywords: "copyright owner author developer",
   },
-  pluely: {
-    title: "Based on Pluely",
-    group: "Copyright and licence",
-    keywords: "credits original author open source",
-  },
   licence: {
     title: "GNU General Public License v3.0",
     group: "Copyright and licence",
@@ -179,11 +174,6 @@ const About = () => {
         <SettingsRow
           {...SETTINGS.copyright}
           desc={`© ${years} ${DEVELOPER.name}. EchoIdeal is developed and maintained by ${DEVELOPER.name}.`}
-        />
-        <SettingsRow
-          {...SETTINGS.pluely}
-          desc="EchoIdeal builds on Pluely by Srikanth Nani, released under the GPL-3.0."
-          to="https://github.com/iamsrikanthnani/pluely"
         />
         <SettingsRow
           {...SETTINGS.licence}

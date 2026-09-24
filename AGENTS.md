@@ -2,7 +2,7 @@
 
 ## Cursor Cloud specific instructions
 
-EchoIdeal is a Tauri v2 desktop AI assistant (React + TypeScript frontend, Rust backend). It replicates the Pluely project.
+EchoIdeal is a Tauri v2 desktop AI assistant (React + TypeScript frontend, Rust backend). 
 
 ### Tech stack
 - **Frontend**: React 19, TypeScript, Vite 7, TailwindCSS v4, shadcn/ui (Radix primitives)
@@ -39,3 +39,7 @@ Issues live in GitHub Issues for `Agbobli5373/EchoIdeal`, via the `gh` CLI. See 
 ### Domain docs
 
 Single-context layout: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+
+# Commit message guidelines
+Dont add co-authors to commit messages. Use `git commit --amend --reset-author` to remove co-authors from a commit message.

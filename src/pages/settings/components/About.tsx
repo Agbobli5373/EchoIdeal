@@ -8,18 +8,18 @@ import { useVersion } from "@/hooks";
 import { defineSettings } from "@/lib/settings-index";
 
 // Registered for settings search (see lib/settings-index).
-const SETTINGS = defineSettings("/general", {
+const SETTINGS = defineSettings("/about", {
   version: {
     title: "Check for updates",
-    group: "About",
+    group: "EchoIdeal",
     keywords: "version update upgrade about",
   },
   bug: {
     title: "Report a bug",
-    group: "About",
+    group: "EchoIdeal",
     keywords: "issue feedback github support",
   },
-  quit: { title: "Quit EchoIdeal", group: "About", keywords: "exit close" },
+  quit: { title: "Quit EchoIdeal", group: "EchoIdeal", keywords: "exit close" },
 });
 
 type UpdateState =

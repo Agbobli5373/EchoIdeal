@@ -89,7 +89,7 @@ A Suggested Answer that needs facts about the Candidate (experience, projects, n
 _Avoid_: Fallback answer, generic answer
 
 **Web Search**:
-An optional search of the internet before each Suggested Answer in an Assessment, switched on or off by the Candidate. Its results inform facts about the world (documentation, definitions, current information) alongside Active Knowledge, but never facts about the Candidate.
+An optional search of the internet before answering a question the Candidate types or a screen they send, including every Suggested Answer in an Assessment, switched on or off by the Candidate. Automatic answers to what the Interviewer says don't search. Its results inform facts about the world (documentation, definitions, current information) alongside Active Knowledge, but never facts about the Candidate.
 _Avoid_: Internet mode, browsing, online search
 
 **Discrepancy**:

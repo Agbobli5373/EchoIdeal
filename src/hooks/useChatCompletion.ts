@@ -14,6 +14,11 @@ import {
 } from "@/lib";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import {
+  lastUserQuestion,
+  webSearchSection,
+  WebSearchStatus,
+} from "@/lib/web-search";
 
 // Types for completion
 interface AttachedFile {
@@ -74,6 +79,11 @@ export const useChatCompletion = (
   const [isRecording, setIsRecording] = useState(false);
   const [isFilesPopoverOpen, setIsFilesPopoverOpen] = useState(false);
   const [isScreenshotLoading, setIsScreenshotLoading] = useState(false);
+  // The latest reply's Web Search, keyed by the reply's message id.
+  const [webSearch, setWebSearch] = useState<{
+    messageId: string;
+    status: WebSearchStatus;
+  } | null>(null);
 
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -234,6 +244,26 @@ export const useChatCompletion = (
         let fullResponse = "";
 
         try {
+          const replyId = generateMessageId(
+            "assistant",
+            timestamp + MESSAGE_ID_OFFSET
+          );
+          const webResults = await webSearchSection({
+            ai: {
+              provider: useEchoIdealAPI ? undefined : provider,
+              selectedProvider: selectedAIProvider,
+            },
+            images: imagesBase64,
+            question: input,
+            previousQuestion: lastUserQuestion(messageHistory),
+            signal,
+            onStatus: (status) => {
+              if (currentRequestIdRef.current === requestId) {
+                setWebSearch({ messageId: replyId, status });
+              }
+            },
+          });
+
           // Use the fetchAIResponse function with signal
           for await (const chunk of fetchAIResponse({
             provider: useEchoIdealAPI ? undefined : provider,
@@ -242,6 +272,7 @@ export const useChatCompletion = (
             history: messageHistory,
             userMessage: input,
             imagesBase64,
+            webResults: webResults ?? undefined,
             signal,
           })) {
             // Only update if this is still the current request
@@ -690,6 +721,7 @@ export const useChatCompletion = (
   return {
     input: state.input,
     setInput,
+    webSearch,
     isLoading: state.isLoading,
     error: state.error,
     attachedFiles: state.attachedFiles,

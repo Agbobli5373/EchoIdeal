@@ -8,15 +8,16 @@ import {
 import type { TYPE_PROVIDER } from "@/types";
 
 /**
- * Web Search: before each Suggested Answer in an Assessment, the AI turns the
- * screen into a search query, Tavily searches the web, and the results go to the
- * answer alongside Active Knowledge. Results are facts about the world, never
- * about the Candidate.
+ * Web Search: before answering a question the user types or a screen they send
+ * (in the overlay, in Chats, or privately about a Meeting), the AI turns it into
+ * a search query, Tavily searches the web, and the results go to the answer
+ * alongside Active Knowledge. Results are facts about the world, never about the
+ * Candidate. Automatic answers to what the Interviewer says don't search.
  */
 
 export type WebSearchConfig = {
   apiKey: string;
-  /** Whether Assessments search the web; the overlay's switch changes this too. */
+  /** Whether requests search the web; the overlay and Chats switches change this too. */
   enabled: boolean;
 };
 
@@ -114,11 +115,11 @@ export async function searchWeb(
 
 export const NO_SEARCH = "NONE";
 
-const QUERY_PROMPT = `You write web search queries for someone taking a screen-based assessment. Look at the screen and their request, then decide whether answering needs information from the web: documentation, library or API details, definitions, facts, or anything recent.
+const QUERY_PROMPT = `You write web search queries. Look at the user's request and any screen image, then decide whether answering needs information from the web: documentation, library or API details, definitions, facts, or anything recent.
 If it does, reply with one search query of at most 12 words, and nothing else.
-If it doesn't (for example a self-contained coding exercise, puzzle or maths problem), reply exactly ${NO_SEARCH}.`;
+If it doesn't (for example a self-contained coding exercise, puzzle or maths problem, writing or rewording, small talk, or a question about the user themselves), reply exactly ${NO_SEARCH}.`;
 
-/** Asks the AI provider for a search query for this screen, or null when none is needed. */
+/** Asks the AI provider for a search query for this request, or null when none is needed. */
 export async function writeSearchQuery(params: {
   ai: {
     provider: TYPE_PROVIDER | undefined;
@@ -126,14 +127,20 @@ export async function writeSearchQuery(params: {
   };
   images: string[];
   question?: string;
+  // The question before this one, so a follow-up like "and in Rust?" searches for the right thing.
+  previousQuestion?: string;
   signal?: AbortSignal;
 }): Promise<string | null> {
+  const question = params.question?.trim() || "Answer what the screen asks.";
+  const previous = params.previousQuestion?.trim();
   let text = "";
   for await (const chunk of fetchAIResponse({
     provider: params.ai.provider,
     selectedProvider: params.ai.selectedProvider,
     systemPrompt: QUERY_PROMPT,
-    userMessage: params.question?.trim() || "Answer what the screen asks.",
+    userMessage: previous
+      ? `Earlier question: ${previous}\nQuestion: ${question}`
+      : question,
     imagesBase64: params.images,
     signal: params.signal,
     knowledgeMode: "none",
@@ -166,6 +173,16 @@ The results of a web search for "${attribute(query)}", made for this question. U
 ${items}`;
 }
 
+/** The latest question the user asked in `history`, for a follow-up's search. */
+export function lastUserQuestion(
+  history: { role: string; content: unknown }[]
+): string | undefined {
+  const last = [...history]
+    .reverse()
+    .find((m) => m.role === "user" && typeof m.content === "string");
+  return last?.content as string | undefined;
+}
+
 export type WebSearchStatus =
   | { state: "searching" }
   | { state: "done"; query: string; results: WebResult[] }
@@ -173,8 +190,8 @@ export type WebSearchStatus =
   | { state: "failed"; error: string };
 
 /**
- * When Web Search is on and has a key, searches the web for this Assessment
- * question and returns the results as a prompt section. Returns null when it's
+ * When Web Search is on and has a key, searches the web for this request and
+ * returns the results as a prompt section. Returns null when it's
  * off, nothing needs looking up, or the search fails; the answer then goes ahead
  * without web results. `onStatus` reports progress for the overlay.
  */
@@ -182,6 +199,7 @@ export async function webSearchSection(params: {
   ai: Parameters<typeof writeSearchQuery>[0]["ai"];
   images: string[];
   question?: string;
+  previousQuestion?: string;
   signal?: AbortSignal;
   onStatus?: (status: WebSearchStatus) => void;
 }): Promise<string | null> {

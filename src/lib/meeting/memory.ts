@@ -18,7 +18,6 @@ import {
   isAIErrorText,
 } from "../functions/ai-response.function";
 import type { TYPE_PROVIDER } from "@/types";
-import { webSearchSection, WebSearchStatus } from "../web-search";
 import { cleanAnswer, DISCREPANCY_OPEN, SCREEN_CLOSE, SCREEN_OPEN } from "./answer";
 import {
   MEETING_TYPE_LABELS,
@@ -312,11 +311,6 @@ export async function prepareMeetingRequest(params: {
   excludeSegmentId?: string | null;
   // The per-type instruction describes a live Meeting; a review of an ended one leaves it out.
   withTypeInstruction?: boolean;
-  // What the user typed, if anything: a live Assessment's Web Search writes its query from
-  // this and the screen.
-  question?: string;
-  signal?: AbortSignal;
-  onWebSearch?: (status: WebSearchStatus) => void;
 }): Promise<{
   systemPrompt: string | undefined;
   meetingContext: string;
@@ -345,17 +339,6 @@ export async function prepareMeetingRequest(params: {
       : supportsImages
         ? await getLatestScreenCaptureImages(meeting.id)
         : [];
-
-  if (meeting.type === "assessment" && params.withTypeInstruction !== false) {
-    const webResults = await webSearchSection({
-      ai,
-      images: imagesBase64,
-      question: params.question,
-      signal: params.signal,
-      onStatus: params.onWebSearch,
-    });
-    if (webResults) sections.push(webResults);
-  }
 
   return {
     systemPrompt:

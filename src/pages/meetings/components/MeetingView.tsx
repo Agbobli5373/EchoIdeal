@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
-import { ScrollArea, Button, Input, Markdown, PageHeader } from "@/components";
+import { ScrollArea, Button, Input, Markdown, PageHeader, WebSearchNote } from "@/components";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -41,6 +41,11 @@ import {
   speakerLabel,
 } from "@/lib/meeting";
 import { DocumentEditorDialog } from "@/pages/knowledge/dialogs";
+import {
+  lastUserQuestion,
+  webSearchSection,
+  WebSearchStatus,
+} from "@/lib/web-search";
 import { useApp } from "@/contexts";
 import {
   BookPlusIcon,
@@ -182,6 +187,11 @@ const MeetingView = () => {
 
   // AI Chat state
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  // The latest Private Request's Web Search, shown under its reply.
+  const [chatWebSearch, setChatWebSearch] = useState<{
+    messageId: string;
+    status: WebSearchStatus;
+  } | null>(null);
   const [chatInput, setChatInput] = useState("");
   const [isAiLoading, setIsAiLoading] = useState(false);
 
@@ -371,7 +381,13 @@ const MeetingView = () => {
         images: [],
         ai,
         withTypeInstruction: isLive,
+      });
+      const webResults = await webSearchSection({
+        ai,
+        images: request.imagesBase64,
         question: text,
+        previousQuestion: lastUserQuestion(chatMessages),
+        onStatus: (status) => setChatWebSearch({ messageId: assistantId, status }),
       });
       // Memory carries the Meeting; only the last few chat turns go along as history.
       const history = chatMessages.slice(-6).map((m) => ({ role: m.role, content: m.content }));
@@ -381,6 +397,7 @@ const MeetingView = () => {
         selectedProvider: ai.selectedProvider,
         systemPrompt: request.systemPrompt,
         meetingContext: request.meetingContext,
+        webResults: webResults ?? undefined,
         history,
         userMessage: text,
         imagesBase64: request.imagesBase64,
@@ -755,13 +772,22 @@ const MeetingView = () => {
                     }`}>
                       {msg.content ? (
                         msg.role === "assistant" ? (
-                          <Markdown>{msg.content}</Markdown>
+                          <>
+                            <Markdown>{msg.content}</Markdown>
+                            {chatWebSearch?.messageId === msg.id && (
+                              <WebSearchNote status={chatWebSearch.status} />
+                            )}
+                          </>
                         ) : (
                           <span className="whitespace-pre-wrap">{msg.content}</span>
                         )
                       ) : (
                         <span className="flex items-center gap-1 text-muted-foreground">
-                          <Loader2Icon className="size-3 animate-spin" />Thinking...
+                          <Loader2Icon className="size-3 animate-spin" />
+                          {chatWebSearch?.messageId === msg.id &&
+                          chatWebSearch.status.state === "searching"
+                            ? "Searching the web..."
+                            : "Thinking..."}
                         </span>
                       )}
                     </div>

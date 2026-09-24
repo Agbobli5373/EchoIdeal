@@ -1,23 +1,24 @@
 import { useEffect, useState } from "react";
 import { GlobeIcon } from "lucide-react";
-import { invoke } from "@tauri-apps/api/core";
-import { emitTo } from "@tauri-apps/api/event";
-import { DASHBOARD_NAVIGATE_EVENT, STORAGE_KEYS } from "@/config";
+import { STORAGE_KEYS } from "@/config";
 import {
   getWebSearchConfig,
   hasWebSearchKey,
   saveWebSearchConfig,
 } from "@/lib/web-search";
 
+/** The settings row that takes the Tavily key. */
+export const WEB_SEARCH_SETUP_PATH = "/ai-and-speech#web-search-key";
+
 /**
- * Turns Web Search on or off during an Assessment. Without a Tavily key it
- * opens the dashboard where the key goes instead.
+ * Turns Web Search on or off. Without a Tavily key it calls `onSetUp`, which
+ * opens the settings row that takes the key.
  */
-export const WebSearchToggle = () => {
+export const WebSearchToggle = ({ onSetUp }: { onSetUp: () => void }) => {
   const [config, setConfig] = useState(getWebSearchConfig);
 
   useEffect(() => {
-    // The dashboard window saves the key and default through localStorage.
+    // Another window (the overlay or the dashboard) may change it.
     const handleStorage = (e: StorageEvent) => {
       if (e.key === STORAGE_KEYS.WEB_SEARCH) setConfig(getWebSearchConfig());
     };
@@ -28,18 +29,9 @@ export const WebSearchToggle = () => {
   const hasKey = hasWebSearchKey(config);
   const on = hasKey && config.enabled;
 
-  const handleClick = async () => {
+  const handleClick = () => {
     if (!hasKey) {
-      try {
-        await invoke("open_dashboard");
-        await emitTo(
-          "dashboard",
-          DASHBOARD_NAVIGATE_EVENT,
-          "/ai-and-speech#web-search-key"
-        );
-      } catch (error) {
-        console.error("Failed to open web search settings:", error);
-      }
+      onSetUp();
       return;
     }
     const next = { ...config, enabled: !config.enabled };
@@ -58,8 +50,8 @@ export const WebSearchToggle = () => {
         !hasKey
           ? "Web search is off: add a Tavily key in AI and Speech"
           : on
-            ? "Web search on: each answer searches the web first. Click to turn it off."
-            : "Web search off. Click to search the web for each answer."
+            ? "Web search on: questions and screens search the web first. Click to turn it off."
+            : "Web search off. Click to search the web before answering."
       }
       className={`flex h-7 shrink-0 items-center gap-1 rounded-full border px-2 text-[11px] font-medium ${
         on
@@ -71,4 +63,21 @@ export const WebSearchToggle = () => {
       {on ? "Web" : "Web off"}
     </button>
   );
+};
+
+/** Whether a Tavily key is set, kept up to date across windows. */
+export const useHasWebSearchKey = () => {
+  const [hasKey, setHasKey] = useState(() =>
+    hasWebSearchKey(getWebSearchConfig())
+  );
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEYS.WEB_SEARCH) {
+        setHasKey(hasWebSearchKey(getWebSearchConfig()));
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+  return hasKey;
 };

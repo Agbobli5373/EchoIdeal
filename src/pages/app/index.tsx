@@ -1,4 +1,13 @@
-import { Card, Updater, DragButton, CustomCursor, Button } from "@/components";
+import {
+  Card,
+  Updater,
+  DragButton,
+  CustomCursor,
+  Button,
+  WebSearchToggle,
+  WEB_SEARCH_SETUP_PATH,
+  useHasWebSearchKey,
+} from "@/components";
 import {
   SystemAudio,
   Completion,
@@ -6,12 +15,13 @@ import {
   StatusIndicator,
   KnowledgeIndicator,
   MeetingChip,
-  WebSearchToggle,
 } from "./components";
 import { useApp } from "@/hooks";
 import { useApp as useAppContext } from "@/contexts";
 import { ZapIcon } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
+import { emitTo } from "@tauri-apps/api/event";
+import { DASHBOARD_NAVIGATE_EVENT } from "@/config";
 import { ErrorBoundary } from "react-error-boundary";
 import { ErrorLayout } from "@/layouts";
 import { getPlatform } from "@/lib";
@@ -20,12 +30,26 @@ const App = () => {
   const { isHidden, systemAudio } = useApp();
   const { customizable } = useAppContext();
   const platform = getPlatform();
+  const hasWebSearchKey = useHasWebSearchKey();
 
   const openDashboard = async () => {
     try {
       await invoke("open_dashboard");
     } catch (error) {
       console.error("Failed to open dashboard:", error);
+    }
+  };
+
+  const openWebSearchSetup = async () => {
+    try {
+      await invoke("open_dashboard");
+      await emitTo(
+        "dashboard",
+        DASHBOARD_NAVIGATE_EVENT,
+        WEB_SEARCH_SETUP_PATH
+      );
+    } catch (error) {
+      console.error("Failed to open web search settings:", error);
     }
   };
 
@@ -78,8 +102,10 @@ const App = () => {
                 isEnding={systemAudio.isEndingMeeting}
               />
             )}
-            {systemAudio.activeMeeting?.type === "assessment" && (
-              <WebSearchToggle />
+            {/* Shown once there's a key; in an Assessment also without one, to set it up. */}
+            {(hasWebSearchKey ||
+              systemAudio.activeMeeting?.type === "assessment") && (
+              <WebSearchToggle onSetUp={openWebSearchSetup} />
             )}
             <Button
               size={"icon"}

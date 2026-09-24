@@ -20,9 +20,10 @@ import { defineSettings } from "@/lib/settings-index";
 // Registered for settings search (see lib/settings-index).
 const SETTINGS = defineSettings("/ai-and-speech", {
   "web-search-enabled": {
-    title: "Search the web in Assessments",
+    title: "Search the web before answering",
     group: "Web search",
-    keywords: "internet online google browse tavily assessment research",
+    keywords:
+      "internet online google browse tavily assessment research chat screen question",
   },
   "web-search-key": {
     title: "Tavily API key",
@@ -78,16 +79,16 @@ export const WebSearchSettings = () => {
   };
 
   return (
-    <SettingsGroup title="Web search" meta="Assessments">
+    <SettingsGroup title="Web search" meta="Optional">
       <SettingsRow
         {...SETTINGS["web-search-enabled"]}
-        desc="Before each Suggested Answer in an Assessment, the AI writes a search query from the screen and Tavily searches the web, so answers can use documentation and facts alongside your Knowledge. You can also switch it in the overlay during an Assessment."
+        desc="Before answering a question you type or a screen you send (in the overlay, in Chats, or about a Meeting), the AI writes a search query and Tavily searches the web, so answers can use documentation and facts alongside your Knowledge. Automatic answers to what the Interviewer says don't search. The overlay and Chats have the same switch."
         control={
           <Switch
             checked={hasKey && config.enabled}
             disabled={!hasKey}
             onCheckedChange={(checked) => update({ enabled: checked })}
-            aria-label="Search the web in Assessments"
+            aria-label="Search the web before answering"
           />
         }
       />

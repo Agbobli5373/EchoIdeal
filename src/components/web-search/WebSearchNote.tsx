@@ -10,7 +10,7 @@ const hostOf = (url: string) => {
   }
 };
 
-/** Under an Assessment answer: what the web was searched for and the sources, or why it wasn't. */
+/** Under an answer: what the web was searched for and the sources, or why it wasn't. */
 export const WebSearchNote = ({
   status,
 }: {
@@ -22,7 +22,7 @@ export const WebSearchNote = ({
     return (
       <p className="mt-3 flex items-center gap-1.5 text-xs text-muted-foreground">
         <GlobeIcon className="size-3" />
-        No web search needed for this screen.
+        No web search needed for this.
       </p>
     );
   }

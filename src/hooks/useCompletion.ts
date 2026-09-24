@@ -28,6 +28,7 @@ import {
 } from "@/lib/meeting";
 import { addMeetingEntry } from "@/lib/database/meetings.action";
 import { Message } from "@/types/completion";
+import type { WebSearchStatus } from "@/lib/web-search";
 
 // During a Meeting, typed requests and Screen Captures carry Meeting Memory instead of the
 // whole typed thread; only its latest exchange goes along, for "shorter" / "explain that".
@@ -35,14 +36,26 @@ async function meetingAwareRequest(
   systemPrompt: string | undefined,
   images: string[],
   history: Message[],
-  ai: MemoryAI
+  ai: MemoryAI,
+  // For a live Assessment's Web Search.
+  webSearch: {
+    question?: string;
+    signal?: AbortSignal;
+    onWebSearch?: (status: WebSearchStatus) => void;
+  } = {}
 ) {
   const meeting = activeMeetingStore.get();
   if (!meeting) {
     return { systemPrompt, meetingContext: undefined, imagesBase64: images, history };
   }
   return {
-    ...(await prepareMeetingRequest({ meeting, systemPrompt, images, ai })),
+    ...(await prepareMeetingRequest({
+      meeting,
+      systemPrompt,
+      images,
+      ai,
+      ...webSearch,
+    })),
     history: history.slice(-2),
   };
 }
@@ -106,6 +119,8 @@ export const useCompletion = () => {
   const [isFilesPopoverOpen, setIsFilesPopoverOpen] = useState(false);
   const [isScreenshotLoading, setIsScreenshotLoading] = useState(false);
   const [keepEngaged, setKeepEngaged] = useState(false);
+  // The current answer's Web Search, in a live Assessment.
+  const [webSearch, setWebSearch] = useState<WebSearchStatus | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const isProcessingScreenshotRef = useRef(false);
   const screenshotConfigRef = useRef(screenshotConfiguration);
@@ -261,11 +276,21 @@ export const useCompletion = () => {
         };
 
         try {
+          setWebSearch(null);
           const request = await meetingAwareRequest(
             systemPrompt || undefined,
             imagesBase64,
             messageHistory,
-            ai
+            ai,
+            {
+              question: effectiveInput,
+              signal,
+              onWebSearch: (status) => {
+                if (currentRequestIdRef.current === requestId) {
+                  setWebSearch(status);
+                }
+              },
+            }
           );
           // Use the fetchAIResponse function with signal
           for await (const chunk of fetchAIResponse({
@@ -369,6 +394,7 @@ export const useCompletion = () => {
       return;
     }
     cancel();
+    setWebSearch(null);
     setState((prev) => ({
       ...prev,
       input: "",
@@ -708,11 +734,21 @@ export const useCompletion = () => {
               provider: useEchoIdealAPI ? undefined : provider,
               selectedProvider: selectedAIProvider,
             };
+            setWebSearch(null);
             const request = await meetingAwareRequest(
               systemPrompt || undefined,
               [base64],
               messageHistory,
-              ai
+              ai,
+              {
+                question: prompt,
+                signal,
+                onWebSearch: (status) => {
+                  if (currentRequestIdRef.current === requestId) {
+                    setWebSearch(status);
+                  }
+                },
+              }
             );
 
             // Use the fetchAIResponse function with image and signal
@@ -1185,5 +1221,6 @@ export const useCompletion = () => {
     isScreenshotLoading,
     keepEngaged,
     setKeepEngaged,
+    webSearch,
   };
 };

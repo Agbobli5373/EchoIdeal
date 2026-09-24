@@ -1,12 +1,25 @@
 import { MacToolbar, PageTitleProvider, Sidebar, TitleBar } from "@/components";
 import { isMacOS } from "@/lib/platform";
 import { ReadinessProvider } from "@/hooks";
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import { listen } from "@tauri-apps/api/event";
+import { DASHBOARD_NAVIGATE_EVENT } from "@/config/constants";
 import { ErrorBoundary } from "react-error-boundary";
 import { ErrorLayout } from "./ErrorLayout";
 
 export const DashboardLayout = () => {
   const mac = isMacOS();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const unlisten = listen<string>(DASHBOARD_NAVIGATE_EVENT, (event) =>
+      navigate(event.payload)
+    );
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [navigate]);
   return (
     <ErrorBoundary
       fallbackRender={() => {

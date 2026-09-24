@@ -88,6 +88,10 @@ _Avoid_: User message, mic transcript
 A Suggested Answer that needs facts about the Candidate (experience, projects, numbers, background) which neither Active Knowledge (for a Searched Document, the passages sent with that question) nor Meeting Memory provides, shown with a visible marker; general technical answers are never Ungrounded.
 _Avoid_: Fallback answer, generic answer
 
+**Web Search**:
+An optional search of the internet before each Suggested Answer in an Assessment, switched on or off by the Candidate. Its results inform facts about the world (documentation, definitions, current information) alongside Active Knowledge, but never facts about the Candidate.
+_Avoid_: Internet mode, browsing, online search
+
 **Discrepancy**:
 A point where the Candidate's Spoken Answer contradicts their Active Knowledge; Suggested Answers stay consistent with what was said, and the Discrepancy is shown privately to the Candidate.
 _Avoid_: Conflict, mismatch

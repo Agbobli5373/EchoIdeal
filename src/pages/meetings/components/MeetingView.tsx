@@ -371,6 +371,7 @@ const MeetingView = () => {
         images: [],
         ai,
         withTypeInstruction: isLive,
+        question: text,
       });
       // Memory carries the Meeting; only the last few chat turns go along as history.
       const history = chatMessages.slice(-6).map((m) => ({ role: m.role, content: m.content }));

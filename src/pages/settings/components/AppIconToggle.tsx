@@ -1,45 +1,23 @@
-import { Switch, Label, Header } from "@/components";
+import { Switch, SettingsRow } from "@/components";
 import { useApp } from "@/contexts";
 
-interface AppIconToggleProps {
-  className?: string;
-}
-
-export const AppIconToggle = ({ className }: AppIconToggleProps) => {
+export const AppIconToggle = () => {
   const { customizable, toggleAppIconVisibility } = useApp();
-
-  const handleSwitchChange = async (checked: boolean) => {
-    await toggleAppIconVisibility(checked);
-  };
+  const isHidden = !customizable.appIcon.isVisible;
 
   return (
-    <div id="app-icon" className={`space-y-2 ${className}`}>
-      <Header
-        title="App Icon Stealth Mode"
-        description="Control dock/taskbar icon visibility when window is hidden for maximum discretion"
-        isMainTitle
-      />
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div>
-            <Label className="text-sm font-medium">
-              {!customizable.appIcon.isVisible
-                ? "Show Icon in Dock/Taskbar"
-                : "Hide Icon from Dock/Taskbar"}
-            </Label>
-            <p className="text-xs text-muted-foreground mt-1">
-              {`Toggle to make App Icon ${
-                !customizable.appIcon.isVisible ? "Visible" : "Hidden"
-              }`}
-            </p>
-          </div>
-        </div>
+    <SettingsRow
+      id="stealth"
+      title="Hide the app icon"
+      desc="Keeps EchoIdeal out of the dock or taskbar while it runs."
+      keywords="stealth dock taskbar icon"
+      control={
         <Switch
-          checked={customizable.appIcon.isVisible}
-          onCheckedChange={handleSwitchChange}
-          aria-label="Toggle app icon visibility"
+          checked={isHidden}
+          onCheckedChange={(hide) => toggleAppIconVisibility(!hide)}
+          aria-label="Hide the app icon"
         />
-      </div>
-    </div>
+      }
+    />
   );
 };

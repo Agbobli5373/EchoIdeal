@@ -1,21 +1,27 @@
-import { Header } from "@/components";
+import { SettingsGroup } from "@/components";
 import { UseSettingsReturn } from "@/types";
-import { Providers } from "./Providers";
 import { CustomProviders } from "./CustomProvider";
+import { ProviderRows } from "../ProviderRows";
 
 export const STTProviders = (settings: UseSettingsReturn) => {
   return (
-    <div id="stt-providers" className="space-y-3">
-      <Header
-        title="STT Providers"
-        description="Select your preferred STT service provider to get started."
-        isMainTitle
+    <SettingsGroup
+      title="Speech provider"
+      more={{
+        id: "stt-more",
+        label: "Custom providers",
+        children: <CustomProviders {...settings} />,
+      }}
+    >
+      <ProviderRows
+        idPrefix="stt"
+        providerDesc="Transcribes the Interviewer and your Spoken Answers."
+        providerKeywords="speech stt transcription whisper deepgram elevenlabs"
+        providers={settings.allSttProviders}
+        selected={settings.selectedSttProvider}
+        onSelect={settings.onSetSelectedSttProvider}
+        variables={settings.sttVariables}
       />
-
-      {/* Custom Provider */}
-      <CustomProviders {...settings} />
-      {/* Providers Selection */}
-      <Providers {...settings} />
-    </div>
+    </SettingsGroup>
   );
 };

@@ -4,8 +4,6 @@ import {
   AudioLinesIcon,
   KeyboardIcon,
   MonitorIcon,
-  PowerIcon,
-  BugIcon,
   MicIcon,
   BookOpenIcon,
   PlugIcon,
@@ -13,7 +11,6 @@ import {
   EyeOffIcon,
   SlidersHorizontalIcon,
 } from "lucide-react";
-import { invoke } from "@tauri-apps/api/core";
 
 export type MenuItem = {
   icon: React.ElementType;
@@ -56,23 +53,7 @@ export const useMenuItems = () => {
     },
   ];
 
-  const footerItems = [
-    {
-      icon: BugIcon,
-      label: "Report a bug",
-      href: "https://github.com/Agbobli5373/EchoIdeal/issues/new?template=bug-report.yml",
-    },
-    {
-      icon: PowerIcon,
-      label: "Quit EchoIdeal",
-      action: async () => {
-        await invoke("exit_app");
-      },
-    },
-  ];
-
   return {
     sections,
-    footerItems,
   };
 };

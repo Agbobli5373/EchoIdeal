@@ -1,21 +1,27 @@
-import { Header } from "@/components";
+import { SettingsGroup } from "@/components";
 import { UseSettingsReturn } from "@/types";
-import { Providers } from "./Providers";
 import { CustomProviders } from "./CustomProvider";
+import { ProviderRows } from "../ProviderRows";
 
 export const AIProviders = (settings: UseSettingsReturn) => {
   return (
-    <div id="ai-providers" className="space-y-3">
-      <Header
-        title="AI Providers"
-        description="Select your preferred AI service provider to get started."
-        isMainTitle
+    <SettingsGroup
+      title="AI provider"
+      more={{
+        id: "ai-more",
+        label: "Custom providers",
+        children: <CustomProviders {...settings} />,
+      }}
+    >
+      <ProviderRows
+        idPrefix="ai"
+        providerDesc="Writes Suggested Answers, summaries and Recaps."
+        providerKeywords="ai model llm openai anthropic claude gpt gemini groq"
+        providers={settings.allAiProviders}
+        selected={settings.selectedAIProvider}
+        onSelect={settings.onSetSelectedAIProvider}
+        variables={settings.variables}
       />
-
-      {/* Custom Provider */}
-      <CustomProviders {...settings} />
-      {/* Providers Selection */}
-      <Providers {...settings} />
-    </div>
+    </SettingsGroup>
   );
 };

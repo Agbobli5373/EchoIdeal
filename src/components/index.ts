@@ -12,3 +12,4 @@ export * from "./Markdown/copy-button";
 export * from "./TitleBar";
 export * from "./PageHeader";
 export * from "./MacToolbar";
+export * from "./settings";

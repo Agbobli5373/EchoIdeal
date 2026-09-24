@@ -1,87 +1,96 @@
-import { Loader2, TrashIcon } from "lucide-react";
-import { Button, Header } from "@/components";
-import { UseSettingsReturn } from "@/types";
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  SettingsRow,
+} from "@/components";
+import { UseSettingsReturn } from "@/types";
 
 export const DeleteChats = ({
   handleDeleteAllChatsConfirm,
   showDeleteConfirmDialog,
   setShowDeleteConfirmDialog,
-}: UseSettingsReturn) => {
+}: Pick<
+  UseSettingsReturn,
+  | "handleDeleteAllChatsConfirm"
+  | "showDeleteConfirmDialog"
+  | "setShowDeleteConfirmDialog"
+>) => {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [result, setResult] = useState<"deleted" | "failed" | null>(null);
 
-  const deleteAllChats = () => {
+  const deleteAllChats = async () => {
     setIsDeleting(true);
-    handleDeleteAllChatsConfirm();
-    setTimeout(() => {
-      setIsDeleting(false);
-    }, 2000);
+    const deleted = await handleDeleteAllChatsConfirm();
+    setIsDeleting(false);
+    setResult(deleted ? "deleted" : "failed");
   };
 
   return (
-    <div id="delete-chats" className="space-y-3">
-      <Header
-        title="Delete Chat History"
-        description="Permanently delete all your chat conversations and history. This action cannot be undone and will remove all stored conversations from your local storage."
-        isMainTitle
+    <>
+      <SettingsRow
+        id="delete-chats"
+        title="Delete chat history"
+        desc={
+          result === "deleted"
+            ? "Every Chat was deleted. Meetings and Knowledge are still here."
+            : result === "failed"
+              ? "Couldn’t delete your Chats. Try again."
+              : "Removes every Chat. Meetings and Knowledge stay."
+        }
+        keywords="clear remove chats conversations history"
+        control={
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-destructive hover:text-destructive"
+            onClick={() => {
+              setResult(null);
+              setShowDeleteConfirmDialog(true);
+            }}
+          >
+            Delete…
+          </Button>
+        }
       />
 
-      <div className="space-y-2">
-        {isDeleting && (
-          <div className="p-3 bg-green-50 border border-green-200 rounded-md">
-            <p className="text-xs text-green-700 font-medium">
-              ✅ All chat history has been successfully deleted.
-            </p>
-          </div>
-        )}
-
-        <Button
-          onClick={() => setShowDeleteConfirmDialog(true)}
-          disabled={isDeleting}
-          variant="destructive"
-          className="w-full h-11"
-          title="Delete all chat history"
-        >
-          {isDeleting ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Deleting...
-            </>
-          ) : (
-            <>
-              <TrashIcon className="h-4 w-4 mr-2" />
-              Delete All Chats
-            </>
-          )}
-        </Button>
-      </div>
-
-      {/* Confirmation Dialog */}
-      {showDeleteConfirmDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-background border rounded-lg p-6 max-w-md mx-4">
-            <h3 className="text-lg font-semibold mb-2">
-              Delete All Chat History
-            </h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Are you sure you want to delete all chat history? This action
-              cannot be undone and will permanently remove all stored
-              conversations.
-            </p>
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setShowDeleteConfirmDialog(false)}
-              >
-                Cancel
-              </Button>
-              <Button variant="destructive" onClick={deleteAllChats}>
-                Delete All
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      <Dialog
+        open={showDeleteConfirmDialog}
+        onOpenChange={(open) => !isDeleting && setShowDeleteConfirmDialog(open)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete every Chat?</DialogTitle>
+            <DialogDescription>
+              This removes all your Chats and their messages, and it can’t be
+              undone. Your Meetings and Knowledge aren’t affected.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteConfirmDialog(false)}
+              disabled={isDeleting}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={deleteAllChats}
+              disabled={isDeleting}
+            >
+              {isDeleting && <Loader2 className="size-4 animate-spin" />}
+              Delete Chats
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };

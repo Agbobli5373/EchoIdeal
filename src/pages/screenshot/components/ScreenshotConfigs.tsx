@@ -1,14 +1,5 @@
-import {
-  Label,
-  Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  Header,
-} from "@/components";
+import { Input, SegmentedControl, SettingsRow } from "@/components";
 import { UseSettingsReturn } from "@/types";
-import { LaptopMinimalIcon, MousePointer2Icon } from "lucide-react";
 
 export const ScreenshotConfigs = ({
   screenshotConfiguration,
@@ -16,119 +7,66 @@ export const ScreenshotConfigs = ({
   handleScreenshotPromptChange,
   handleScreenshotEnabledChange,
 }: UseSettingsReturn) => {
+  // `enabled` means full-screen capture; off means drag to select an area.
+  const method = screenshotConfiguration.enabled ? "screenshot" : "selection";
+
   return (
-    <div id="screenshot" className="space-y-3">
-      <div className="space-y-3">
-        {/* Screenshot Capture Mode: Selection and Screenshot */}
-        <div className="space-y-2">
-          <div className="flex flex-col">
-            <Header
-              title="Capture Method"
-              description={
-                screenshotConfiguration.enabled
-                  ? "Screenshot Mode: Quickly capture the entire screen with one click."
-                  : "Selection Mode: Click and drag to select a specific area to capture."
-              }
-            />
-          </div>
-          <Select
-            value={screenshotConfiguration.enabled ? "screenshot" : "selection"}
-            onValueChange={(value) =>
+    <>
+      <SettingsRow
+        id="cap-method"
+        title="Capture"
+        desc={
+          method === "screenshot"
+            ? "The whole screen, with one click."
+            : "An area you select by dragging."
+        }
+        keywords="screenshot area region selection full screen"
+        control={
+          <SegmentedControl
+            label="Capture"
+            value={method}
+            onChange={(value) =>
               handleScreenshotEnabledChange(value === "screenshot")
             }
-          >
-            <SelectTrigger className="w-full h-11 border-1 border-input/50 focus:border-primary/50 transition-colors">
-              <div className="flex items-center gap-2">
-                {screenshotConfiguration.enabled ? (
-                  <LaptopMinimalIcon className="size-4" />
-                ) : (
-                  <MousePointer2Icon className="size-4" />
-                )}
-                <div className="text-sm font-medium">
-                  {screenshotConfiguration.enabled
-                    ? "Screenshot Mode"
-                    : "Selection Mode"}
-                </div>
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="selection">
-                <div className="flex items-center gap-2">
-                  <MousePointer2Icon className="size-4" />
-                  <div className="font-medium">Selection Mode</div>
-                </div>
-              </SelectItem>
-              <SelectItem value="screenshot" className="flex flex-row gap-2">
-                <LaptopMinimalIcon className="size-4" />
-                <div className="font-medium">Screenshot Mode</div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Mode Selection: Auto and Manual */}
-        <div className="space-y-2">
-          <div className="flex flex-col">
-            <Header
-              title="Processing Mode"
-              description={
-                screenshotConfiguration.mode === "manual"
-                  ? "Screenshots will be captured and automatically added to your attached files. You can then submit them with your own prompt. you can capture multiple screenshots and submit them later."
-                  : "Screenshots will be automatically submitted to AI using your custom prompt. No manual intervention required. only one screenshot can be submitted at a time."
-              }
-            />
-          </div>
-          <Select
+            options={[
+              { value: "screenshot", label: "Full screen" },
+              { value: "selection", label: "Selection" },
+            ]}
+          />
+        }
+      />
+      <SettingsRow
+        id="cap-mode"
+        title="After capturing"
+        desc={
+          screenshotConfiguration.mode === "auto"
+            ? "Sends the capture to the AI straight away with the prompt below. One capture at a time."
+            : "Attaches the capture to your next question, so you can add several and ask about them together."
+        }
+        keywords="auto manual processing submit attach"
+        stacked={screenshotConfiguration.mode === "auto"}
+        control={
+          <SegmentedControl
+            label="After capturing"
             value={screenshotConfiguration.mode}
-            onValueChange={handleScreenshotModeChange}
-          >
-            <SelectTrigger className="w-full h-11 border-1 border-input/50 focus:border-primary/50 transition-colors">
-              <div className="flex items-center gap-2">
-                <div className="text-sm font-medium">
-                  {screenshotConfiguration.mode === "auto" ? "Auto" : "Manual"}{" "}
-                  Mode
-                </div>
-              </div>
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="manual">
-                <div className="font-medium">Manual Mode</div>
-              </SelectItem>
-              <SelectItem value="auto">
-                <div className="font-medium">Auto Mode</div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Auto Prompt Input - Only show when auto mode is selected */}
+            onChange={handleScreenshotModeChange}
+            options={[
+              { value: "auto", label: "Answer at once" },
+              { value: "manual", label: "Attach to my question" },
+            ]}
+          />
+        }
+      >
         {screenshotConfiguration.mode === "auto" && (
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Auto Prompt</Label>
-            <Input
-              placeholder="Enter prompt for automatic screenshot analysis..."
-              value={screenshotConfiguration.autoPrompt}
-              onChange={(e) => handleScreenshotPromptChange(e.target.value)}
-              className="w-full h-11 border-1 border-input/50 focus:border-primary/50 transition-colors"
-            />
-            <p className="text-xs text-muted-foreground">
-              This prompt will be used automatically when screenshots are taken
-            </p>
-          </div>
+          <Input
+            placeholder="What to ask about each capture…"
+            aria-label="Prompt sent with each capture"
+            value={screenshotConfiguration.autoPrompt}
+            onChange={(e) => handleScreenshotPromptChange(e.target.value)}
+            className="h-9"
+          />
         )}
-      </div>
-
-      {/* Tips */}
-      <div className="text-xs text-muted-foreground/70">
-        <p>
-          💡 <strong>Tip:</strong>{" "}
-          {screenshotConfiguration.enabled
-            ? "Screenshot mode captures the full screen with one click."
-            : "Selection mode lets you choose specific areas to capture."}{" "}
-          Auto mode is great for quick analysis, manual mode gives you more
-          control.
-        </p>
-      </div>
-    </div>
+      </SettingsRow>
+    </>
   );
 };

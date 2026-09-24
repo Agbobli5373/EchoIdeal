@@ -1,3 +1,4 @@
+export { default as Home } from "./home";
 export { default as Chats } from "./chats";
 export { default as ViewChat } from "./chats/components/View";
 export { default as App } from "./app";

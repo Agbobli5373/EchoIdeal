@@ -92,6 +92,8 @@ pub fn run() {
             shortcuts::set_app_icon_visibility,
             shortcuts::set_always_on_top,
             shortcuts::exit_app,
+            shortcuts::show_overlay_window,
+            shortcuts::open_meeting_start,
             activate::activate_license_api,
             activate::deactivate_license_api,
             activate::validate_license_api,

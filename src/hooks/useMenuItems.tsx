@@ -10,7 +10,9 @@ import {
   PaletteIcon,
   EyeOffIcon,
   SlidersHorizontalIcon,
+  HouseIcon,
 } from "lucide-react";
+import { useReadiness } from "./useReadiness";
 
 export type MenuItem = {
   icon: React.ElementType;
@@ -25,10 +27,14 @@ export type MenuSection = {
 };
 
 export const useMenuItems = () => {
+  const { needsAttention } = useReadiness();
+
   // Your work first, then settings.
   const sections: MenuSection[] = [
     {
       items: [
+        // Home counts the readiness checks that need attention.
+        { icon: HouseIcon, label: "Home", href: "/home", count: needsAttention },
         { icon: MicIcon, label: "Meetings", href: "/meetings" },
         { icon: BookOpenIcon, label: "Knowledge", href: "/knowledge" },
         { icon: WandSparkles, label: "Prompts", href: "/prompts" },

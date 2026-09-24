@@ -186,6 +186,59 @@ pub fn stop_all_move_windows<R: Runtime>(app: &AppHandle<R>) {
     }
 }
 
+/// Shows the overlay and brings it forward, as the Toggle Window shortcut does
+/// when the overlay is hidden.
+fn show_overlay<R: Runtime>(app: &AppHandle<R>) {
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+
+    // On Windows the page hides the overlay itself (useApp.ts). Toggle Window flips this flag and
+    // the page shows its content while the flag is true, so set it to keep the next press of
+    // Toggle Window hiding the overlay again.
+    #[cfg(target_os = "windows")]
+    {
+        let state = app.state::<WindowVisibility>();
+        *state.is_hidden.lock().unwrap() = true;
+    }
+
+    if let Err(e) = window.show() {
+        eprintln!("Failed to show window: {}", e);
+    }
+    if let Err(e) = window.set_focus() {
+        eprintln!("Failed to focus window: {}", e);
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        let panel = app.get_webview_panel("main").unwrap();
+        panel.show();
+    }
+
+    // Unlike toggle-window-visibility, this leaves an open popover (such as the start form) alone.
+    if let Err(e) = window.emit("overlay-shown", ()) {
+        eprintln!("Failed to emit overlay-shown event: {}", e);
+    }
+}
+
+/// Shows the overlay, from the dashboard's Home.
+#[tauri::command]
+pub fn show_overlay_window(app: AppHandle) {
+    show_overlay(&app);
+}
+
+/// Shows the overlay with its start form open on `meeting_type`, from the
+/// dashboard's Start Interview / Assessment / Meeting.
+#[tauri::command]
+pub fn open_meeting_start(app: AppHandle, meeting_type: String) -> Result<(), String> {
+    if !matches!(meeting_type.as_str(), "interview" | "assessment" | "general") {
+        return Err(format!("Unknown meeting type: {}", meeting_type));
+    }
+    show_overlay(&app);
+    app.emit_to("main", "open-meeting-start", meeting_type)
+        .map_err(|e| format!("Failed to open the start form: {}", e))
+}
+
 /// Handle app toggle (hide/show) with input focus and app icon management
 fn handle_toggle_window<R: Runtime>(app: &AppHandle<R>) {
     // Get the main window

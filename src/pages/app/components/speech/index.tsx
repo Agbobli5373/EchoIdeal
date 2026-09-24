@@ -198,6 +198,7 @@ export const SystemAudio = (props: useSystemAudioType) => {
           {isStartPromptOpen && !activeMeeting ? (
             <div className="p-3">
               <StartMeetingForm
+                key={lastMeetingType}
                 defaultType={lastMeetingType}
                 onStart={startMeeting}
                 onCancel={() => setIsStartPromptOpen(false)}

@@ -6,6 +6,7 @@ import {
   ChangeEvent,
   ClipboardEvent,
 } from "react";
+import type { WebSearchStatus } from "@/lib/web-search";
 // import {
 //   AttachedFile,
 //   ChatMessage,
@@ -88,6 +89,8 @@ export interface UseCompletionReturn {
   keepEngaged: boolean;
   /** Function to toggle keep engaged mode */
   setKeepEngaged: Dispatch<SetStateAction<boolean>>;
+  /** The current answer's Web Search in a live Assessment, or null when none ran */
+  webSearch: WebSearchStatus | null;
 
   // Screenshot functionality
   /** Current screenshot configuration settings */

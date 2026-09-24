@@ -6,6 +6,7 @@ import {
   StatusIndicator,
   KnowledgeIndicator,
   MeetingChip,
+  WebSearchToggle,
 } from "./components";
 import { useApp } from "@/hooks";
 import { useApp as useAppContext } from "@/contexts";
@@ -76,6 +77,9 @@ const App = () => {
                 onEnd={systemAudio.endActiveMeeting}
                 isEnding={systemAudio.isEndingMeeting}
               />
+            )}
+            {systemAudio.activeMeeting?.type === "assessment" && (
+              <WebSearchToggle />
             )}
             <Button
               size={"icon"}

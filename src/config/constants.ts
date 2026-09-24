@@ -24,7 +24,11 @@ export const STORAGE_KEYS = {
   KNOWLEDGE_ACTIVE_COUNT: "knowledge_active_count",
   KNOWLEDGE_PRIVACY_ACKNOWLEDGED: "knowledge_privacy_acknowledged",
   EMBEDDINGS_PROVIDER: "embeddings_provider",
+  WEB_SEARCH: "web_search",
 } as const;
+
+// The overlay opens the dashboard on a page by emitting this with the path.
+export const DASHBOARD_NAVIGATE_EVENT = "dashboard-navigate";
 
 // Max number of files that can be attached to a message
 export const MAX_FILES = 6;

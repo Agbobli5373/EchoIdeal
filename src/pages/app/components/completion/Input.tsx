@@ -12,6 +12,7 @@ import {
 } from "@/components";
 import { UseCompletionReturn } from "@/types";
 import { MessageHistory } from "./MessageHistory";
+import { WebSearchNote } from "./WebSearchNote";
 
 export const Input = ({
   isPopoverOpen,
@@ -34,6 +35,7 @@ export const Input = ({
   isHidden,
   keepEngaged,
   setKeepEngaged,
+  webSearch,
 }: UseCompletionReturn & { isHidden: boolean }) => {
   return (
     <div className="relative flex-1">
@@ -163,10 +165,15 @@ export const Input = ({
               {isLoading && (
                 <div className="flex items-center gap-2 my-4 text-muted-foreground animate-pulse select-none">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm">Generating response...</span>
+                  <span className="text-sm">
+                    {webSearch?.state === "searching"
+                      ? "Searching the web..."
+                      : "Generating response..."}
+                  </span>
                 </div>
               )}
               {response && <Markdown>{response}</Markdown>}
+              {response && <WebSearchNote status={webSearch} />}
 
               {/* Conversation History - Separate scroll, no auto-scroll */}
               {keepEngaged && conversationHistory.length > 1 && (

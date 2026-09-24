@@ -1,4 +1,9 @@
-import { AIProviders, EmbeddingsProvider, STTProviders } from "./components";
+import {
+  AIProviders,
+  EmbeddingsProvider,
+  STTProviders,
+  WebSearchSettings,
+} from "./components";
 import { useSettings } from "@/hooks";
 import { PageLayout } from "@/layouts";
 
@@ -8,7 +13,7 @@ const DevSpace = () => {
   return (
     <PageLayout
       title="AI and Speech"
-      subtitle="The providers that write Suggested Answers, transcribe speech and search large Knowledge Documents."
+      subtitle="The providers behind Suggested Answers, speech, searched Knowledge and web search."
     >
       {/* Provider Selection */}
       <AIProviders {...settings} />
@@ -17,6 +22,8 @@ const DevSpace = () => {
       <STTProviders {...settings} />
 
       <EmbeddingsProvider />
+
+      <WebSearchSettings />
     </PageLayout>
   );
 };

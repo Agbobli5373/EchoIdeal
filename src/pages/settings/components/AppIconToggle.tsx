@@ -1,5 +1,14 @@
 import { Switch, SettingsRow } from "@/components";
 import { useApp } from "@/contexts";
+import { defineSettings } from "@/lib/settings-index";
+
+// Registered for settings search (see lib/settings-index).
+const SETTINGS = defineSettings("/privacy", {
+  stealth: {
+    title: "Hide the app icon",
+    keywords: "stealth dock taskbar icon",
+  },
+});
 
 export const AppIconToggle = () => {
   const { customizable, toggleAppIconVisibility } = useApp();
@@ -7,10 +16,9 @@ export const AppIconToggle = () => {
 
   return (
     <SettingsRow
-      id="stealth"
-      title="Hide the app icon"
+      {...SETTINGS.stealth}
       desc="Keeps EchoIdeal out of the dock or taskbar while it runs."
-      keywords="stealth dock taskbar icon"
+
       control={
         <Switch
           checked={isHidden}

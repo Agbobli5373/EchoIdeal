@@ -11,6 +11,15 @@ import {
 } from "@/components";
 import { useKnowledge } from "@/hooks";
 import { PageLayout } from "@/layouts";
+import { defineSettings } from "@/lib/settings-index";
+
+// Registered for settings search (see lib/settings-index).
+const SETTINGS = defineSettings("/knowledge", {
+  budget: {
+    title: "Knowledge Budget",
+    keywords: "tokens limit active knowledge documents size",
+  },
+});
 import { STORAGE_KEYS } from "@/config";
 import { safeLocalStorage } from "@/lib";
 import { estimateTokens, KNOWLEDGE_FILE_ACCEPT } from "@/lib/knowledge";
@@ -65,16 +74,14 @@ const Knowledge = () => {
   const replaceInputRef = useRef<HTMLInputElement>(null);
   const [replaceTargetId, setReplaceTargetId] = useState<number | null>(null);
   const [editor, setEditor] = useState<
-    | { mode: "paste" }
-    | { mode: "edit"; document: KnowledgeDocument }
-    | null
+    { mode: "paste" } | { mode: "edit"; document: KnowledgeDocument } | null
   >(null);
   const [deleteTarget, setDeleteTarget] = useState<KnowledgeDocument | null>(
     null
   );
-  const [pendingActivationId, setPendingActivationId] = useState<
-    number | null
-  >(null);
+  const [pendingActivationId, setPendingActivationId] = useState<number | null>(
+    null
+  );
   const [budgetDraft, setBudgetDraft] = useState<string | null>(null);
 
   const handleUpload = async (files: FileList | null) => {
@@ -106,7 +113,10 @@ const Knowledge = () => {
   };
 
   const confirmPrivacy = () => {
-    safeLocalStorage.setItem(STORAGE_KEYS.KNOWLEDGE_PRIVACY_ACKNOWLEDGED, "true");
+    safeLocalStorage.setItem(
+      STORAGE_KEYS.KNOWLEDGE_PRIVACY_ACKNOWLEDGED,
+      "true"
+    );
     if (pendingActivationId !== null) setActive(pendingActivationId, true);
     setPendingActivationId(null);
   };
@@ -192,7 +202,7 @@ const Knowledge = () => {
       )}
 
       <Card
-        id="budget"
+        id={SETTINGS.budget.id}
         className="shadow-none p-4 gap-3 !bg-black/5 dark:!bg-white/5 border-transparent"
       >
         <div className="flex flex-wrap items-center justify-between gap-3">

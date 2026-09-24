@@ -12,6 +12,19 @@ import { useApp } from "@/contexts";
 import { STORAGE_KEYS } from "@/config/constants";
 import { safeLocalStorage } from "@/lib/storage";
 import { invoke } from "@tauri-apps/api/core";
+import { defineSettings } from "@/lib/settings-index";
+
+// Registered for settings search (see lib/settings-index).
+const SETTINGS = defineSettings("/audio", {
+  mic: {
+    title: "Microphone",
+    keywords: "input mic microphone recording voice",
+  },
+  sysaudio: {
+    title: "System audio",
+    keywords: "output speakers headphones loopback interviewer",
+  },
+});
 
 export const AudioSelection = () => {
   const { selectedAudioDevices, setSelectedAudioDevices } = useApp();
@@ -203,14 +216,13 @@ export const AudioSelection = () => {
   return (
     <>
       <SettingsRow
-        id="mic"
-        title="Microphone"
+        {...SETTINGS.mic}
         desc={status(
           "input",
           devices.input,
           "Your Spoken Answers, when “Remember my answers” is on, and voice input."
         )}
-        keywords="input mic microphone recording voice"
+
         control={deviceSelect(
           "input",
           devices.input,
@@ -220,14 +232,13 @@ export const AudioSelection = () => {
         )}
       />
       <SettingsRow
-        id="sysaudio"
-        title="System audio"
+        {...SETTINGS.sysaudio}
         desc={status(
           "output",
           devices.output,
           "The Interviewer, from your speakers or headphones."
         )}
-        keywords="output speakers headphones loopback interviewer"
+
         control={deviceSelect(
           "output",
           devices.output,

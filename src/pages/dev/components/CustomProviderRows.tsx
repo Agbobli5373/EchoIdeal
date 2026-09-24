@@ -84,7 +84,6 @@ export const CustomProviderRows = ({
         id={`${idPrefix}-curl`}
         title="Add a custom provider"
         desc="Paste a curl command; the text, image and system prompt are filled in for you."
-        keywords="curl custom endpoint api provider"
         stacked={hook.showForm}
         control={
           hook.showForm ? undefined : (

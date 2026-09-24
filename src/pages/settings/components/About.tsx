@@ -4,6 +4,22 @@ import { check, Update } from "@tauri-apps/plugin-updater";
 import { Loader2 } from "lucide-react";
 import { Button, SettingsRow } from "@/components";
 import { useVersion } from "@/hooks";
+import { defineSettings } from "@/lib/settings-index";
+
+// Registered for settings search (see lib/settings-index).
+const SETTINGS = defineSettings("/general", {
+  version: {
+    title: "Check for updates",
+    group: "About",
+    keywords: "version update upgrade about",
+  },
+  bug: {
+    title: "Report a bug",
+    group: "About",
+    keywords: "issue feedback github support",
+  },
+  quit: { title: "Quit EchoIdeal", group: "About", keywords: "exit close" },
+});
 
 type UpdateState =
   | { kind: "idle" }
@@ -74,10 +90,10 @@ export const About = () => {
   return (
     <>
       <SettingsRow
-        id="version"
+        {...SETTINGS.version}
         title={isLoading ? "EchoIdeal" : `EchoIdeal ${version}`}
         desc={status}
-        keywords="version update upgrade about"
+
         control={
           state.kind === "available" ? (
             <Button size="sm" onClick={() => install(state.update)}>
@@ -88,7 +104,9 @@ export const About = () => {
               size="sm"
               variant="outline"
               onClick={checkForUpdates}
-              disabled={state.kind === "checking" || state.kind === "installing"}
+              disabled={
+                state.kind === "checking" || state.kind === "installing"
+              }
             >
               {(state.kind === "checking" || state.kind === "installing") && (
                 <Loader2 className="size-3.5 animate-spin" />
@@ -99,17 +117,13 @@ export const About = () => {
         }
       />
       <SettingsRow
-        id="bug"
-        title="Report a bug"
+        {...SETTINGS.bug}
         desc="Opens a new issue on GitHub."
-        keywords="issue feedback github support"
         to="https://github.com/Agbobli5373/EchoIdeal/issues/new?template=bug-report.yml"
       />
       <SettingsRow
-        id="quit"
-        title="Quit EchoIdeal"
+        {...SETTINGS.quit}
         desc="Closes the overlay and the dashboard."
-        keywords="exit close"
         onSelect={() => {
           invoke("exit_app").catch(console.error);
         }}

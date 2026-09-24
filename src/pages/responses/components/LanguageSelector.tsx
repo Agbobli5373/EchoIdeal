@@ -2,6 +2,16 @@ import { useState, useEffect, useMemo } from "react";
 import { Selection, SettingsRow } from "@/components";
 import { getResponseSettings, LANGUAGES } from "@/lib";
 import { updateLanguage } from "@/lib/storage/response-settings.storage";
+import { defineSettings } from "@/lib/settings-index";
+
+// Registered for settings search (see lib/settings-index).
+const SETTINGS = defineSettings("/prompts", {
+  lang: {
+    title: "Answer language",
+    group: "Answer style",
+    keywords: "response language english spanish french german translate",
+  },
+});
 
 export const LanguageSelector = () => {
   const [selectedLanguage, setSelectedLanguage] = useState<string>("english");
@@ -26,10 +36,9 @@ export const LanguageSelector = () => {
 
   return (
     <SettingsRow
-      id="lang"
-      title="Answer language"
+      {...SETTINGS.lang}
       desc="Every provider answers in this language, where it can."
-      keywords="response language english spanish french german translate"
+
       control={
         <Selection
           selected={selectedLanguage}

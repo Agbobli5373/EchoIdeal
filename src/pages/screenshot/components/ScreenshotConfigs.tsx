@@ -1,5 +1,18 @@
 import { Input, SegmentedControl, SettingsRow } from "@/components";
 import { UseSettingsReturn } from "@/types";
+import { defineSettings } from "@/lib/settings-index";
+
+// Registered for settings search (see lib/settings-index).
+const SETTINGS = defineSettings("/screen-capture", {
+  "cap-method": {
+    title: "Capture",
+    keywords: "screenshot area region selection full screen",
+  },
+  "cap-mode": {
+    title: "After capturing",
+    keywords: "auto manual processing submit attach",
+  },
+});
 
 export const ScreenshotConfigs = ({
   screenshotConfiguration,
@@ -13,14 +26,13 @@ export const ScreenshotConfigs = ({
   return (
     <>
       <SettingsRow
-        id="cap-method"
-        title="Capture"
+        {...SETTINGS["cap-method"]}
         desc={
           method === "screenshot"
             ? "The whole screen, with one click."
             : "An area you select by dragging."
         }
-        keywords="screenshot area region selection full screen"
+
         control={
           <SegmentedControl
             label="Capture"
@@ -36,14 +48,13 @@ export const ScreenshotConfigs = ({
         }
       />
       <SettingsRow
-        id="cap-mode"
-        title="After capturing"
+        {...SETTINGS["cap-mode"]}
         desc={
           screenshotConfiguration.mode === "auto"
             ? "Sends the capture to the AI straight away with the prompt below. One capture at a time."
             : "Attaches the capture to your next question, so you can add several and ask about them together."
         }
-        keywords="auto manual processing submit attach"
+
         stacked={screenshotConfiguration.mode === "auto"}
         control={
           <SegmentedControl

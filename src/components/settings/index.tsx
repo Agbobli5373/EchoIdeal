@@ -71,7 +71,8 @@ export const SettingsRow = ({
   title: React.ReactNode;
   desc?: React.ReactNode;
   control?: React.ReactNode;
-  /** Extra words people might search for; used by settings search. */
+  /** Extra words people might search for. Search reads them from the row's
+   * `defineSettings` entry (lib/settings-index); here they're only data-keywords. */
   keywords?: string;
   to?: string;
   onSelect?: () => void;
@@ -117,7 +118,10 @@ export const SettingsRow = ({
     <div
       id={id}
       data-keywords={keywords}
-      className={cn("settings-row px-4 py-3", !stacked && "flex items-center gap-4")}
+      className={cn(
+        "settings-row px-4 py-3",
+        !stacked && "flex items-center gap-4"
+      )}
     >
       {stacked ? (
         <>
@@ -198,7 +202,9 @@ export const Keys = ({ keys }: { keys: string[] }) => (
  * row and briefly highlights it, opening the disclosure it sits in first.
  */
 export const useSettingsAnchor = () => {
-  const { hash, pathname } = useLocation();
+  // `key` changes on every navigation, so choosing the same row twice still
+  // scrolls to it and highlights it.
+  const { hash, pathname, key } = useLocation();
 
   useEffect(() => {
     const id = decodeURIComponent(hash.replace(/^#/, ""));
@@ -210,7 +216,9 @@ export const useSettingsAnchor = () => {
       if (!target) return;
 
       const disclosure =
-        target instanceof HTMLDetailsElement ? target : target.closest("details");
+        target instanceof HTMLDetailsElement
+          ? target
+          : target.closest("details");
       if (disclosure && !disclosure.open) disclosure.open = true;
 
       target.scrollIntoView({ block: "center", behavior: "smooth" });
@@ -225,5 +233,5 @@ export const useSettingsAnchor = () => {
     }, 50);
 
     return () => window.clearTimeout(timer);
-  }, [hash, pathname]);
+  }, [hash, pathname, key]);
 };

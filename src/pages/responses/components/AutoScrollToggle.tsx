@@ -1,6 +1,16 @@
 import { useState, useEffect } from "react";
 import { SettingsRow, Switch } from "@/components";
 import { getResponseSettings, updateAutoScroll } from "@/lib";
+import { defineSettings } from "@/lib/settings-index";
+
+// Registered for settings search (see lib/settings-index).
+const SETTINGS = defineSettings("/prompts", {
+  follow: {
+    title: "Keep the latest answer in view",
+    group: "Answer style",
+    keywords: "auto scroll follow response",
+  },
+});
 
 export const AutoScrollToggle = () => {
   const [autoScroll, setAutoScroll] = useState<boolean>(true);
@@ -16,10 +26,9 @@ export const AutoScrollToggle = () => {
 
   return (
     <SettingsRow
-      id="follow"
-      title="Keep the latest answer in view"
+      {...SETTINGS.follow}
       desc="Scrolls the overlay as an answer streams in."
-      keywords="auto scroll follow response"
+
       control={
         <Switch
           checked={autoScroll}

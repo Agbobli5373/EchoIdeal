@@ -4,6 +4,7 @@ import { fetchSTT } from "@/lib/functions/stt.function";
 import { useApp } from "@/contexts";
 import { SPEECH_TO_TEXT_PROVIDERS } from "@/config";
 import { floatArrayToWav } from "@/lib/utils";
+import { isEcho, watchSystemSpeech } from "@/lib/meeting/echo";
 
 interface MicTranscriberProps {
   isActive: boolean;
@@ -51,12 +52,19 @@ const MicTranscriberInternal = ({
       ]);
 
       if (
-        transcription &&
-        !transcription.includes("Error") &&
-        !transcription.includes("No transcription")
+        !transcription ||
+        transcription.includes("Error") ||
+        transcription.includes("No transcription")
       ) {
-        onTranscription(transcription.trim(), spokenAt);
+        return;
       }
+      const text = transcription.trim();
+      const start = spokenAt - (audio.length / 16000) * 1000;
+      if (await isEcho(text, start, spokenAt)) {
+        console.info("Dropped an echo of the other side from the microphone:", text);
+        return;
+      }
+      onTranscription(text, spokenAt);
     } catch (err) {
       console.error("Mic transcription error:", err);
     }
@@ -74,6 +82,10 @@ const MicTranscriberInternal = ({
       );
     },
   });
+
+  useEffect(() => {
+    void watchSystemSpeech();
+  }, []);
 
   useEffect(() => {
     if (isActive && !vad.listening) {

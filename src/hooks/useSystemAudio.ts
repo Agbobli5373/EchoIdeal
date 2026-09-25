@@ -30,10 +30,12 @@ import {
   MemoryAI,
   activeMeetingStore,
   generateMeetingSummary,
+  heardFromSystem,
   keepMemoryInBudget,
   prepareMeetingRequest,
   splitScreenText,
   useActiveMeeting,
+  wavDurationMs,
 } from "@/lib/meeting";
 import { getScreenshotAnalyzePrompt } from "@/lib/storage/screenshot-analyze.storage";
 import { Message } from "@/types/completion";
@@ -288,11 +290,14 @@ export function useSystemAudio() {
     const setupEventListener = async () => {
       try {
         speechUnlisten = await listen("speech-detected", async (event) => {
+          // Lets a microphone line that repeats this speech be dropped as an Echo.
+          let heardText: (text: string | null) => void = () => {};
           try {
             if (!capturing) return;
             const spokenAt = Date.now();
 
             const base64Audio = event.payload as string;
+            heardText = heardFromSystem(spokenAt, wavDurationMs(base64Audio));
             // Convert to blob
             const binaryString = atob(base64Audio);
             const bytes = new Uint8Array(binaryString.length);
@@ -343,6 +348,7 @@ export function useSystemAudio() {
               if (transcription.includes("No transcription found")) return;
 
               if (transcription.trim()) {
+                heardText(transcription.trim());
                 setLastTranscription(transcription);
                 setError("");
 
@@ -391,6 +397,7 @@ export function useSystemAudio() {
           } catch (err) {
             setError("Failed to process speech");
           } finally {
+            heardText(null);
             setIsProcessing(false);
           }
         });

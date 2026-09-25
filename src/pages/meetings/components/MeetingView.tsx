@@ -318,8 +318,8 @@ const MeetingView = () => {
   }, [chatMessages]);
 
   const handleStartTranscription = useCallback(async () => {
-    if (meetingId) await startTranscription(meetingId);
-  }, [meetingId, startTranscription]);
+    if (meetingId && meeting) await startTranscription(meetingId, meeting.startedAt);
+  }, [meetingId, meeting, startTranscription]);
 
   const handleEndMeeting = useCallback(async () => {
     if (!meetingId) return;

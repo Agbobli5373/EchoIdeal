@@ -12,6 +12,7 @@ export * from "./meeting-type";
 export * from "./answer";
 export * from "./memory";
 export * from "./recap";
+export * from "./echo";
 
 // The Meeting the overlay window is running (started or resumed there). Paused Meetings stay active.
 let activeMeeting: Meeting | null = null;

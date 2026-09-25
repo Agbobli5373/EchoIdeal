@@ -19,9 +19,11 @@ mod linux;
 use linux::{SpeakerInput as PlatformSpeakerInput, SpeakerStream as PlatformSpeakerStream};
 
 mod commands;
+mod microphone;
 
 // Re-export commands for tauri handler
 pub use commands::*;
+pub use microphone::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AudioDevice {

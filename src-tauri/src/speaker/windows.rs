@@ -3,6 +3,7 @@ use super::AudioDevice;
 use anyhow::Result;
 use futures_util::Stream;
 use std::collections::VecDeque;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
 use std::task::{Poll, Waker};
 use std::thread;
@@ -319,6 +320,72 @@ impl SpeakerStream {
 
         Ok(())
     }
+}
+
+/// Captures the microphone `device_id` (or the default one) as mono f32 at the
+/// device's own rate, handing each packet to `on_samples` until `stop` is set.
+/// `ready` gets the sample rate once capture has started, or why it couldn't.
+pub fn capture_microphone(
+    device_id: Option<String>,
+    stop: Arc<AtomicBool>,
+    ready: mpsc::Sender<Result<u32>>,
+    mut on_samples: impl FnMut(Vec<f32>),
+) {
+    let _ = wasapi::initialize_mta();
+    let init = (|| -> Result<_> {
+        let chosen = device_id
+            .filter(|id| !id.is_empty() && id != "default")
+            .and_then(|id| find_device_by_id(&Direction::Capture, &id));
+        let device = match chosen {
+            Some(device) => device,
+            None => get_default_device(&Direction::Capture)?,
+        };
+
+        let mut audio_client = device.get_iaudioclient()?;
+        let rate = audio_client.get_mixformat()?.get_samplespersec();
+        let format = WaveFormat::new(32, 32, &SampleType::Float, rate as usize, 1, None);
+        let (_def_time, min_time) = audio_client.get_device_period()?;
+        let mode = StreamMode::EventsShared {
+            autoconvert: true,
+            buffer_duration_hns: min_time,
+        };
+        audio_client.initialize_client(&format, &Direction::Capture, &mode)?;
+        let h_event = audio_client.set_get_eventhandle()?;
+        let capture_client = audio_client.get_audiocaptureclient()?;
+        audio_client.start_stream()?;
+        Ok((audio_client, h_event, capture_client, rate))
+    })();
+
+    let (audio_client, h_event, capture_client, rate) = match init {
+        Ok(started) => started,
+        Err(e) => {
+            let _ = ready.send(Err(e));
+            return;
+        }
+    };
+    let _ = ready.send(Ok(rate));
+
+    let mut bytes = VecDeque::new();
+    while !stop.load(Ordering::Acquire) {
+        if h_event.wait_for_event(500).is_err() {
+            continue;
+        }
+        if let Err(e) = capture_client.read_from_device_to_deque(&mut bytes) {
+            error!("Failed to read the microphone: {}", e);
+            continue;
+        }
+        let whole = bytes.len() / 4 * 4;
+        let samples: Vec<f32> = bytes
+            .drain(..whole)
+            .collect::<Vec<u8>>()
+            .chunks_exact(4)
+            .map(|b| f32::from_le_bytes([b[0], b[1], b[2], b[3]]))
+            .collect();
+        if !samples.is_empty() {
+            on_samples(samples);
+        }
+    }
+    let _ = audio_client.stop_stream();
 }
 
 // Drops the audio stream

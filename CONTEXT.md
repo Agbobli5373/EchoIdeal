@@ -85,7 +85,7 @@ What the Candidate actually said, transcribed from their microphone; it takes pr
 _Avoid_: User message, mic transcript
 
 **Echo**:
-The other side's voice picked up by the Candidate's microphone from their speakers, while they are talking; it is dropped instead of becoming a Spoken Answer.
+The other side's voice picked up by the Candidate's microphone from their speakers, while they are talking; it is cancelled from the microphone where the app can, and whatever is left is dropped instead of becoming a Spoken Answer.
 _Avoid_: Bleed, duplicate line
 
 **Ungrounded Answer**:

@@ -56,6 +56,9 @@ futures-util = "0.3"
 anyhow = "1.0"
 tracing = "0.1"
 ringbuf = "0.4.8"
+# Echo cancellation and speech detection for the microphone
+sonora = "0.2"
+earshot = "1.2"
 tauri-plugin-shell = "2.3.1"
 tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 tauri-plugin-posthog = "0.2.4"

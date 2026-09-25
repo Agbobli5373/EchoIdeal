@@ -245,9 +245,10 @@ impl SpeakerStream {
                         }
                     }
 
+                    // Loopback sends nothing while nothing plays, so a quiet stretch is not
+                    // an error: keep waiting (and checking for shutdown).
                     if h_event.wait_for_event(3000).is_err() {
-                        error!("EchoIdeal timeout error, stopping capture");
-                        break;
+                        continue;
                     }
 
                     let mut temp_queue = VecDeque::new();

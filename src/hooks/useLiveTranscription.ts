@@ -5,6 +5,7 @@ import { fetchSTT } from "@/lib/functions/stt.function";
 import { useApp } from "@/contexts";
 import { SPEECH_TO_TEXT_PROVIDERS } from "@/config";
 import { addTranscriptSegment } from "@/lib/database/meetings.action";
+import { heardFromSystem, wavDurationMs } from "@/lib/meeting/echo";
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
@@ -48,7 +49,7 @@ export const useLiveTranscription = () => {
       speaker: string,
       meetingId: string,
       segmentStartMs: number
-    ) => {
+    ): Promise<string | null> => {
       try {
         const binaryString = atob(audioBase64);
         const bytes = new Uint8Array(binaryString.length);
@@ -60,7 +61,7 @@ export const useLiveTranscription = () => {
         const provider = getSttProvider();
         if (!provider) {
           setError("No STT provider configured. Set one in Dev Space.");
-          return;
+          return null;
         }
 
         const transcription = await Promise.race([
@@ -75,7 +76,7 @@ export const useLiveTranscription = () => {
         ]);
 
         if (!transcription || transcription.includes("Error") || transcription.includes("No transcription")) {
-          return;
+          return null;
         }
 
         const segment: TranscriptionSegment = {
@@ -99,8 +100,10 @@ export const useLiveTranscription = () => {
 
         setLastSegment(segment);
         setSegmentCount((prev) => prev + 1);
+        return segment.content;
       } catch (err) {
         console.error("Transcription error:", err);
+        return null;
       }
     },
     [getSttProvider, selectedSttProvider]
@@ -111,9 +114,11 @@ export const useLiveTranscription = () => {
       const meetingId = meetingIdRef.current;
       if (!meetingId) return;
       const segmentStartMs = Date.now() - meetingStartRef.current;
-      queueRef.current = queueRef.current.then(() =>
-        transcribeChunk(audioBase64, speaker, meetingId, segmentStartMs)
-      );
+      // Lets a microphone line that repeats this speech be dropped as an Echo.
+      const heardText = heardFromSystem(Date.now(), wavDurationMs(audioBase64));
+      queueRef.current = queueRef.current
+        .then(() => transcribeChunk(audioBase64, speaker, meetingId, segmentStartMs))
+        .then(heardText, () => heardText(null));
     },
     [transcribeChunk]
   );

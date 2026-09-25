@@ -84,6 +84,10 @@ _Avoid_: Response, reply, AI answer
 What the Candidate actually said, transcribed from their microphone; it takes precedence over the Suggested Answer in Meeting Memory.
 _Avoid_: User message, mic transcript
 
+**Echo**:
+The other side's voice picked up by the Candidate's microphone from their speakers, while they are talking; it is dropped instead of becoming a Spoken Answer.
+_Avoid_: Bleed, duplicate line
+
 **Ungrounded Answer**:
 A Suggested Answer that needs facts about the Candidate (experience, projects, numbers, background) which neither Active Knowledge (for a Searched Document, the passages sent with that question) nor Meeting Memory provides, shown with a visible marker; general, technical and world questions are never Ungrounded, even when Active Knowledge doesn't cover them.
 _Avoid_: Fallback answer, generic answer

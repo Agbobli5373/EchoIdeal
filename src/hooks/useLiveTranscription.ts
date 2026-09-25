@@ -123,15 +123,17 @@ export const useLiveTranscription = () => {
     [transcribeChunk]
   );
 
+  // Lines are timed from when the Meeting started, like the microphone's, so they
+  // stay in spoken order after a pause.
   const startTranscription = useCallback(
-    async (meetingId: string) => {
+    async (meetingId: string, meetingStartedAt: number) => {
       if (isTranscribing) return;
 
       setError(null);
       setSegmentCount(0);
       setLastSegment(null);
       meetingIdRef.current = meetingId;
-      meetingStartRef.current = Date.now();
+      meetingStartRef.current = meetingStartedAt;
 
       try {
         const unlistenSpeech = await listen<string>(

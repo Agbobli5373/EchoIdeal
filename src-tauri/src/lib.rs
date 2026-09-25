@@ -123,6 +123,9 @@ pub fn run() {
             speaker::get_audio_sample_rate,
             speaker::get_input_devices,
             speaker::get_output_devices,
+            speaker::start_microphone_capture,
+            speaker::stop_microphone_capture,
+            speaker::get_microphone_echo_stats,
         ])
         .setup(|app| {
             // Setup main window positioning

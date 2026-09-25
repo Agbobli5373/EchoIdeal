@@ -1,5 +1,5 @@
 // EchoIdeal AI Speech Detection, and capture system audio (speaker output) as a stream of f32 samples.
-use crate::speaker::{AudioDevice, SpeakerInput};
+use crate::speaker::{AudioDevice, ReferenceTap, SpeakerInput};
 use anyhow::Result;
 use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use futures_util::StreamExt;
@@ -147,6 +147,7 @@ async fn run_vad_capture(
     let mut silence_chunks = 0;
     let mut speech_chunks = 0;
     let max_samples = sr as usize * 30; // 30s safety cap per utterance
+    let mut reference = ReferenceTap::new(sr);
 
     while let Some(sample) = stream.next().await {
         buffer.push_back(sample);
@@ -159,6 +160,8 @@ async fn run_vad_capture(
                     mono.push(v);
                 }
             }
+            // What the speakers play is the reference for cancelling Echo from the microphone.
+            reference.extend(&mono);
 
             // Apply noise gate BEFORE VAD (critical for accuracy)
             let mono = apply_noise_gate(&mono, config.noise_gate_threshold);
@@ -270,6 +273,7 @@ async fn run_continuous_capture(
     let mut audio_buffer = Vec::with_capacity(max_samples);
     let start_time = Instant::now();
     let max_duration = Duration::from_secs(config.max_recording_duration_secs);
+    let mut reference = ReferenceTap::new(sr);
 
     // Atomic flag for manual stop
     let stop_flag = Arc::new(AtomicBool::new(false));
@@ -302,6 +306,7 @@ async fn run_continuous_capture(
                         }
 
                         audio_buffer.push(sample);
+                        reference.extend(&[sample]);
 
                         let elapsed = start_time.elapsed();
 
@@ -391,7 +396,7 @@ fn calculate_audio_metrics(chunk: &[f32]) -> (f32, f32) {
     (rms, peak)
 }
 
-fn normalize_audio_level(samples: &[f32], target_rms: f32) -> Vec<f32> {
+pub(super) fn normalize_audio_level(samples: &[f32], target_rms: f32) -> Vec<f32> {
     if samples.is_empty() {
         return Vec::new();
     }
@@ -419,7 +424,7 @@ fn normalize_audio_level(samples: &[f32], target_rms: f32) -> Vec<f32> {
 }
 
 // Convert samples to WAV base64 (with proper error handling)
-fn samples_to_wav_b64(sample_rate: u32, mono_f32: &[f32]) -> Result<String, String> {
+pub(super) fn samples_to_wav_b64(sample_rate: u32, mono_f32: &[f32]) -> Result<String, String> {
     // Validate sample rate
     if !(8000..=96000).contains(&sample_rate) {
         error!("Invalid sample rate: {}", sample_rate);

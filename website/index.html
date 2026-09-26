@@ -253,8 +253,15 @@ html.menu-lock{overflow:hidden}
 .ei-btn-o .ic,.ei-end .ic{width:12px;height:12px}
 .ei-meeting{max-width:128px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:10px;color:var(--e-mfg)}
 .ei-end{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:6px;font-size:10px;font-weight:500;color:var(--e-red)}
-/* Phones: the 600px window reflows instead of shrinking its text */
-@media (max-width:759px){.ei-pop{height:clamp(452px,calc(1000px - 100vw),640px)}}
+/* Phones: the 600px window reflows instead of shrinking its text, and sits in the page
+   rather than over the call, so it takes its content's height like the real popover.
+   While an answer shows, it holds the tallest answer's height (measured in script as
+   --pop-full) so streaming text doesn't push the page around. */
+@media (max-width:759px){
+  .ei-pop{height:auto;min-height:0;transition:min-height .5s var(--ease)}
+  .ei-pop.has-results{min-height:var(--pop-full,0px)}
+  .ei-scroll{flex:1 0 auto}
+}
 @media (max-width:519px){.ei-pop-head{flex-wrap:wrap}.ei-modes{flex:1 1 100%}.ei-actions{flex:1 1 100%;justify-content:flex-end}.ei-mode small{display:none}}
 .ei-scroll{flex:1;min-height:0;overflow:hidden;padding:8px;display:flex;flex-direction:column;gap:8px}
 .ei-results{flex:none;border-radius:8px;border:1px solid color-mix(in srgb,var(--e-border) 50%,transparent);background:color-mix(in srgb,var(--e-muted) 20%,transparent);padding:12px;display:flex;flex-direction:column;gap:12px;transition:opacity .25s}
@@ -1787,26 +1794,56 @@ out: [[1,6],[8,10],[15,18]]</pre>
       n.title = 'Only you see this. Suggested Answers stay consistent with what you said.';
       return n;
     }
-    function renderAnswer(beat) {
-      ansEl.innerHTML = '';
-      if (beat.ungrounded) ansEl.appendChild(badge());
+    function renderAnswer(beat, target = ansEl) {
+      target.innerHTML = '';
+      if (beat.ungrounded) target.appendChild(badge());
       const p = mk('p');
       markdown(beat.answer).forEach((seg) => {
         if (seg.bold) { const b = mk('strong'); b.textContent = seg.t; p.appendChild(b); } else p.appendChild(document.createTextNode(seg.t));
       });
-      ansEl.appendChild(p);
-      if (beat.discrepancy) ansEl.appendChild(discrepancyNote(beat.discrepancy));
+      target.appendChild(p);
+      if (beat.discrepancy) target.appendChild(discrepancyNote(beat.discrepancy));
     }
+
+    // Phones: find the popover height of the longest finished answer at this width,
+    // using a hidden copy so the live demo is left alone.
+    const pop = $('.ei-pop', ov);
+    let popWidth = 0;
+    function measurePop() {
+      const w = pop.offsetWidth;
+      if (!w || w === popWidth) return;
+      popWidth = w;
+      const probe = pop.cloneNode(true);
+      $$('[id]', probe).forEach((e) => e.removeAttribute('id'));
+      probe.classList.remove('has-results');
+      Object.assign(probe.style, { position: 'absolute', left: '0', top: '0', width: `${w}px`, minHeight: '0', transition: 'none', visibility: 'hidden', pointerEvents: 'none' });
+      const r = $('.ei-results', probe), f = $('.ei-foot', probe);
+      r.hidden = false; f.hidden = false; r.classList.remove('is-clearing');
+      ov.appendChild(probe);
+      let tallest = 0;
+      BEATS.forEach((b) => {
+        $('.ei-heard span', probe).textContent = b.them;
+        renderAnswer(b, $('.ei-ans', probe));
+        tallest = Math.max(tallest, probe.offsetHeight);
+      });
+      probe.remove();
+      pop.style.setProperty('--pop-full', `${Math.ceil(tallest)}px`);
+    }
+    measurePop();
+    let popTick = false;
+    window.addEventListener('resize', () => { if (popTick) return; popTick = true; requestAnimationFrame(() => { popTick = false; measurePop(); }); });
+
+    const showResults = (on) => { results.hidden = !on; foot.hidden = !on; pop.classList.toggle('has-results', on); };
 
     // What the overlay shows once a beat has finished.
     function showFinal(i) {
-      results.hidden = false; foot.hidden = false; results.classList.remove('is-clearing');
+      showResults(true); results.classList.remove('is-clearing');
       heardEl.textContent = BEATS[i].them;
       renderAnswer(BEATS[i]);
       setStatus('listening'); setSpeaker(null); caption.hidden = true;
     }
     function showEmpty() {
-      results.hidden = true; foot.hidden = true; ansEl.innerHTML = '';
+      showResults(false); ansEl.innerHTML = '';
       setStatus('listening'); setSpeaker(null); caption.hidden = true;
     }
 
@@ -1848,7 +1885,7 @@ out: [[1,6],[8,10],[15,18]]</pre>
       // The Interviewer stops talking: transcribe, then ask the AI.
       setStatus('transcribing');
       await sleep(T_TRANSCRIBE, id);
-      results.hidden = false; foot.hidden = false;
+      showResults(true);
       heardEl.textContent = b.them;
       ansEl.innerHTML = `<div class="ei-gen">${I('loader')}<span>Generating response...</span></div>`;
       setStatus('generating');

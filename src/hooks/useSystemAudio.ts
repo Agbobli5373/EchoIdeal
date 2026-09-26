@@ -21,6 +21,7 @@ import {
   MeetingType,
   addMeetingEntry,
   addTranscriptSegment,
+  setSegmentVoice,
   createMeeting,
   endMeeting,
   getActiveMeeting,
@@ -31,10 +32,12 @@ import {
   activeMeetingStore,
   generateMeetingSummary,
   heardFromSystem,
+  prepareVoiceModel,
   keepMemoryInBudget,
   prepareMeetingRequest,
   splitScreenText,
   useActiveMeeting,
+  voiceOf,
   wavDurationMs,
 } from "@/lib/meeting";
 import { getScreenshotAnalyzePrompt } from "@/lib/storage/screenshot-analyze.storage";
@@ -375,9 +378,15 @@ export function useSystemAudio() {
                     endTimeMs: Date.now() - meeting.startedAt,
                     confidence: null,
                     isFinal: true,
-                  }).catch((err) =>
-                    console.error("Failed to save transcript segment:", err)
-                  );
+                  })
+                    .then(async () => {
+                      // Which Voice said it arrives a moment later; the answer doesn't wait.
+                      const voice = await voiceOf(meeting.id, base64Audio);
+                      if (voice !== null) await setSegmentVoice(segmentId!, voice);
+                    })
+                    .catch((err) =>
+                      console.error("Failed to save transcript segment:", err)
+                    );
                 }
 
                 await processWithAI(
@@ -586,6 +595,7 @@ export function useSystemAudio() {
           : null;
 
       // Start a new continuous recording session
+      prepareVoiceModel();
       await invoke<string>("start_system_audio_capture", {
         vadConfig: vadConfig,
         deviceId: deviceId,
@@ -785,6 +795,7 @@ export function useSystemAudio() {
           : null;
 
       // Start capture with VAD config
+      prepareVoiceModel();
       await invoke<string>("start_system_audio_capture", {
         vadConfig: vadConfig,
         deviceId: deviceId,

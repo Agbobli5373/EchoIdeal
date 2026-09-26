@@ -4,6 +4,13 @@ import { ScrollArea, Button, Input, Markdown, PageHeader, WebSearchNote } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Meeting,
   MeetingEntry,
   TranscriptSegment,
@@ -16,6 +23,10 @@ import {
   updateMeetingSpeakerNames,
   addTranscriptSegment,
   setMeetingRecapDocument,
+  getMeetingVoices,
+  mergeMeetingVoices,
+  saveMeetingVoice,
+  setSegmentVoice,
 } from "@/lib/database/meetings.action";
 import { createKnowledgeDocument } from "@/lib/database/knowledge.action";
 import { TranscriptSegmentItem } from "./TranscriptSegmentItem";
@@ -38,7 +49,13 @@ import {
   generateMeetingSummary,
   generateRecap,
   prepareMeetingRequest,
+  hasSeveralVoices,
+  nameKey,
+  nextVoice,
+  speakerKey,
   speakerLabel,
+  speakerName,
+  voicesChanged,
 } from "@/lib/meeting";
 import { DocumentEditorDialog } from "@/pages/knowledge/dialogs";
 import {
@@ -271,7 +288,7 @@ const MeetingView = () => {
       const id = `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
       const startTimeMs = spokenAt - meetingStartRef.current;
       const segment: TranscriptSegment = {
-        id, meetingId, speaker: "You", content: text,
+        id, meetingId, speaker: "You", voice: null, content: text,
         startTimeMs, endTimeMs: Date.now() - meetingStartRef.current,
         confidence: null, isFinal: true, createdAt: Date.now(),
       };
@@ -285,6 +302,44 @@ const MeetingView = () => {
     [meetingId]
   );
 
+  const refreshSegments = useCallback(async () => {
+    if (meetingId) setSegments(await getSegmentsByMeetingId(meetingId));
+  }, [meetingId]);
+
+  // Fixes for when voices are told apart wrongly: move one line, or merge two Voices.
+  const moveLine = useCallback(
+    async (segment: TranscriptSegment, to: number | "new") => {
+      if (!meetingId) return;
+      let voice = to;
+      if (voice === "new") {
+        const known = await getMeetingVoices(meetingId);
+        const used = segments.filter((s) => s.voice !== null).map((s) => ({ voice: s.voice! }));
+        voice = nextVoice([...known, ...used]);
+        // It has no profile yet, so new lines aren't matched to it; it keeps its number.
+        await saveMeetingVoice(meetingId, { voice, fingerprint: new Float32Array(256), lines: 0 });
+      }
+      await setSegmentVoice(segment.id, voice);
+      await voicesChanged(meetingId);
+      await refreshSegments();
+    },
+    [meetingId, segments, refreshSegments]
+  );
+
+  const mergeVoice = useCallback(
+    async (from: number, into: number) => {
+      if (!meetingId) return;
+      await mergeMeetingVoices(meetingId, from, into);
+      setSpeakerNames((prev) => {
+        const { [`Them ${from}`]: fromName, ...rest } = prev;
+        const intoKey = `Them ${into}`;
+        return rest[intoKey] || !fromName ? rest : { ...rest, [intoKey]: fromName };
+      });
+      await voicesChanged(meetingId);
+      await refreshSegments();
+    },
+    [meetingId, refreshSegments]
+  );
+
   useEffect(() => {
     if (!meeting || meeting.status !== "active") return;
     const interval = setInterval(() => setTimer(formatTimer(meeting.startedAt)), 1000);
@@ -294,7 +349,7 @@ const MeetingView = () => {
   useEffect(() => {
     if (lastSegment && meetingId) {
       setSegments((prev) => insertInSpokenOrder(prev, {
-        id: lastSegment.id, meetingId, speaker: lastSegment.speaker,
+        id: lastSegment.id, meetingId, speaker: lastSegment.speaker, voice: lastSegment.voice,
         content: lastSegment.content, startTimeMs: lastSegment.startTimeMs,
         endTimeMs: lastSegment.endTimeMs, confidence: null, isFinal: true,
         createdAt: Date.now(),
@@ -489,7 +544,25 @@ const MeetingView = () => {
   }
 
   const isActive = meeting.status === "active";
-  const uniqueSpeakers = [...new Set(segments.map((s) => s.speaker))];
+  const several = hasSeveralVoices(segments);
+  const voices = [
+    ...new Set(segments.filter((s) => s.speaker === "Them" && s.voice !== null).map((s) => s.voice!)),
+  ].sort((a, b) => a - b);
+  // Each speaker's default label ("Interviewer 2"), and the name shown for it.
+  const labelOf = (s: Pick<TranscriptSegment, "speaker" | "voice">) =>
+    speakerLabel(speakerKey(s, several), meeting.type);
+  const shownAs = (s: Pick<TranscriptSegment, "speaker" | "voice">) =>
+    speakerName(nameKey(s), speakerNames, meeting.type) ?? labelOf(s);
+  const voiceLine = (voice: number) => ({ speaker: "Them", voice });
+  const speakerRows: Pick<TranscriptSegment, "speaker" | "voice">[] = [
+    { speaker: "You", voice: null },
+    ...(voices.length > 0 ? voices.map(voiceLine) : [{ speaker: "Them", voice: null }]),
+  ];
+  const uniqueSpeakers = [
+    ...new Set(
+      segments.map((s) => shownAs(s))
+    ),
+  ];
   const timeline = buildTimeline(segments, entries);
 
   return (
@@ -527,7 +600,7 @@ const MeetingView = () => {
                   <span className="text-muted-foreground/30">·</span>
                   <span className="flex items-center gap-1">
                     <UsersIcon className="size-3" />
-                    {uniqueSpeakers.map((s) => speakerNames[s] || s).join(", ")}
+                    {uniqueSpeakers.join(", ")}
                   </span>
                 </>
               )}
@@ -621,12 +694,37 @@ const MeetingView = () => {
               <Button variant="ghost" size="sm" className="h-6 text-[10px]" onClick={() => setShowSpeakerEdit(false)}>Done</Button>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {Object.entries(speakerNames).map(([key, name]) => (
-                <div key={key} className="flex items-center gap-2">
-                  <span className="text-[10px] text-muted-foreground w-8 shrink-0">{key}:</span>
-                  <Input value={name} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSpeakerNames((prev) => ({ ...prev, [key]: e.target.value || key }))} className="h-7 text-xs" placeholder={key} />
-                </div>
-              ))}
+              {speakerRows.map((row) => {
+                const key = nameKey(row);
+                const label = labelOf(row);
+                const others = row.voice !== null && several ? voices.filter((v) => v !== row.voice) : [];
+                return (
+                  <div key={key} className="flex items-center gap-2">
+                    <span className="text-[10px] text-muted-foreground w-20 shrink-0 truncate">{label}:</span>
+                    <Input
+                      value={speakerName(key, speakerNames, meeting.type) ?? ""}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSpeakerNames((prev) => ({ ...prev, [key]: e.target.value }))}
+                      className="h-7 text-xs"
+                      placeholder={label}
+                    />
+                    {others.length > 0 && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] shrink-0">Merge</Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel className="text-xs">Same person as…</DropdownMenuLabel>
+                          {others.map((v) => (
+                            <DropdownMenuItem key={v} className="text-xs" onSelect={() => mergeVoice(row.voice!, v)}>
+                              {shownAs(voiceLine(v))}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -705,7 +803,21 @@ const MeetingView = () => {
                         <>
                           <TranscriptSegmentItem
                             segment={item.segment}
-                            label={speakerNames[item.segment.speaker] || item.segment.speaker}
+                            label={shownAs(item.segment)}
+                            styleKey={nameKey(item.segment)}
+                            moveTo={
+                              item.segment.speaker === "Them" && voices.length > 0
+                                ? [
+                                    ...voices
+                                      .filter((v) => v !== item.segment.voice)
+                                      .map((v) => ({
+                                        label: shownAs(voiceLine(v)),
+                                        onSelect: () => moveLine(item.segment, v),
+                                      })),
+                                    { label: "New speaker", onSelect: () => moveLine(item.segment, "new") },
+                                  ]
+                                : undefined
+                            }
                           />
                           {item.answer && <SuggestedAnswerCard entry={item.answer} />}
                         </>

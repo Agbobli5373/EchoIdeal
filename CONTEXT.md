@@ -11,8 +11,12 @@ The person using EchoIdeal during an Interview or Assessment, who receives Sugge
 _Avoid_: Interviewee, user (in interview context)
 
 **Interviewer**:
-The other party in an Interview, who asks questions and follow-ups. In other Meetings the other party is shown as "Them".
+The other party in an Interview, who asks questions and follow-ups. In other Meetings the other party is shown as "Them". When several people interview together, each is a Voice.
 _Avoid_: Speaker, system audio
+
+**Voice**:
+One person on the other side of a Meeting, told apart from the others by how they sound, and shown as Interviewer 1, 2… (Them 1, 2… in other Meetings) in the order they first speak. The Candidate can name a Voice, merge two that are the same person, or move a line to another Voice. Voices belong to one Meeting only.
+_Avoid_: Speaker ID, diarization label, voiceprint
 
 ### Knowledge
 

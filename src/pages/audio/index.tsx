@@ -1,4 +1,4 @@
-import { AudioSelection } from "./components";
+import { AudioSelection, VoicesSetting } from "./components";
 import { PageLayout } from "@/layouts";
 import { SettingsGroup, SettingsRow } from "@/components";
 import { getPlatform } from "@/lib";
@@ -78,6 +78,9 @@ const Audio = () => {
         }}
       >
         <AudioSelection />
+      </SettingsGroup>
+      <SettingsGroup title="Speakers">
+        <VoicesSetting />
       </SettingsGroup>
     </PageLayout>
   );

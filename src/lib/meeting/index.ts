@@ -6,13 +6,14 @@ import {
 } from "../database/meetings.action";
 import { fetchAIResponse } from "../functions/ai-response.function";
 import type { TYPE_PROVIDER } from "@/types";
-import { speakerLabel } from "./meeting-type";
+import { hasSeveralVoices, speakerKey, speakerLabel } from "./meeting-type";
 
 export * from "./meeting-type";
 export * from "./answer";
 export * from "./memory";
 export * from "./recap";
 export * from "./echo";
+export * from "./voices";
 
 // The Meeting the overlay window is running (started or resumed there). Paused Meetings stay active.
 let activeMeeting: Meeting | null = null;
@@ -43,8 +44,9 @@ export function buildTranscriptContext(
 ): string {
   const recent = segments.slice(-maxSegments);
   if (recent.length === 0) return "(No transcript yet)";
+  const several = hasSeveralVoices(segments);
   return recent
-    .map((s) => `[${speakerLabel(s.speaker, type)}]: ${s.content}`)
+    .map((s) => `[${speakerLabel(speakerKey(s, several), type)}]: ${s.content}`)
     .join("\n");
 }
 

@@ -616,7 +616,6 @@ details.script ol{margin:10px 0 0;padding-left:20px;display:grid;gap:6px;color:v
 .keys-title{font-family:var(--serif);font-size:1.35rem;font-weight:450;letter-spacing:-.01em;margin-bottom:16px}
 .keys-list{list-style:none;margin:0;padding:0;display:grid;gap:12px 28px}
 @media (min-width:640px){.keys-list{grid-template-columns:1fr 1fr}}
-@media (min-width:1100px){.keys-list{grid-template-columns:1fr 1fr 1fr}}
 .keys-list li{display:flex;align-items:center;gap:12px;font-size:14.5px;color:var(--ink-2)}
 .combo{display:inline-flex;gap:4px;flex:none;min-width:128px}
 
@@ -911,7 +910,7 @@ details.script ol{margin:10px 0 0;padding-left:20px;display:grid;gap:6px;color:v
       <p class="masthead"><span>The honest interview copilot</span><span>Windows · macOS · Linux</span><span>Free &amp; open source · GPL-3.0</span></p>
       <h1 id="hero-title" class="display">Answers you can <span class="scribble"><em>stand behind.</em><svg viewBox="0 0 400 24" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M4 15 C 90 5, 190 21, 282 11 S 380 8, 396 13"/></svg></span></h1>
       <div class="hero-foot">
-        <p class="hero-sub">EchoIdeal listens to both sides of your interview and suggests what to say next, <strong>built from your CV, the job description and the stories you prepared.</strong> When it doesn’t know something about you, it tells you instead of making it up.</p>
+        <p class="hero-sub">EchoIdeal listens to both sides of your interview and suggests what to say next, <strong>built from your CV, the job description and your stories.</strong> If it doesn’t know something about you, it says so.</p>
         <div class="hero-cta">
           <div class="hero-actions">
             <button class="btn btn-primary btn-lg is-soon" type="button" disabled>
@@ -1040,7 +1039,7 @@ details.script ol{margin:10px 0 0;padding-left:20px;display:grid;gap:6px;color:v
               <li>Mentor engineers across two squads</li>
             </ul>
           </article>
-          <p class="rail-note">EchoIdeal doesn’t label where each sentence came from. It uses these documents for facts about you, and marks an answer when it needs one they don’t contain.</p>
+          <p class="rail-note">Facts about you come only from these documents. Answers that need anything else are marked.</p>
         </aside>
       </div>
 
@@ -1058,7 +1057,7 @@ details.script ol{margin:10px 0 0;padding-left:20px;display:grid;gap:6px;color:v
 
       <figcaption>
         <div class="fig-row">
-          <p><span class="fig">Fig. 1</span>A scripted Interview in EchoIdeal’s overlay, drawn as the app draws it while it listens. The people, companies and documents are invented for this page.</p>
+          <p><span class="fig">Fig. 1</span>A scripted Interview in EchoIdeal’s overlay. The people, companies and documents are invented.</p>
           <div class="theme-toggle" role="group" aria-label="Overlay theme">
             <span aria-hidden="true">Theme</span>
             <span class="seg"><button type="button" data-theme="light" aria-pressed="false">Light</button><button type="button" data-theme="dark" aria-pressed="true">Dark</button></span>
@@ -1082,23 +1081,23 @@ details.script ol{margin:10px 0 0;padding-left:20px;display:grid;gap:6px;color:v
       <div class="reveal">
         <p class="eyebrow"><span class="num">§</span> The idea</p>
         <h2 id="idea-title" class="h2">Most AI copilots will put words in your mouth. <em>This one starts from yours.</em></h2>
-        <p class="lede">An answer is only useful if you can defend it in the follow-up. So EchoIdeal separates what it knows about you from what it’s guessing, and it tells you which is which.</p>
+        <p class="lede">An answer only helps if you can defend it in the follow-up, so EchoIdeal tells you what it knows about you and what it’s guessing.</p>
       </div>
       <ol class="ledger">
         <li class="reveal">
           <span class="roman" aria-hidden="true">I.</span>
           <h3>Grounded in your documents</h3>
-          <p>Anything it says about you, from your roles to your projects to your numbers, comes from your <span class="term">Knowledge Documents</span> or from what’s already been said in the Meeting.</p>
+          <p>Your roles, projects and numbers come from your <span class="term">Knowledge Documents</span> or from what’s been said in the Meeting.</p>
         </li>
         <li class="reveal">
           <span class="roman" aria-hidden="true">II.</span>
           <h3>Honest about the gaps</h3>
-          <p>If a question needs a fact it doesn’t have, like a salary or a start date, the answer is marked <span class="mark-ug">Not from your knowledge</span>. You fill in the blank. It doesn’t.</p>
+          <p>Missing a fact, like a salary? The answer is marked <span class="mark-ug">Not from your knowledge</span> and you fill in the blank.</p>
         </li>
         <li class="reveal">
           <span class="roman" aria-hidden="true">III.</span>
           <h3>Consistent with what you said</h3>
-          <p>Say something that contradicts your CV and you get a private <span class="mark-disc">Discrepancy</span> note. Later answers follow what you actually said, so your story holds together.</p>
+          <p>Contradict your CV and you get a private <span class="mark-disc">Discrepancy</span> note. Later answers follow what you said.</p>
         </li>
       </ol>
     </div>
@@ -1120,7 +1119,7 @@ details.script ol{margin:10px 0 0;padding-left:20px;display:grid;gap:6px;color:v
         <header class="reveal">
           <p class="eyebrow"><span class="num">01</span> Before the interview</p>
           <h2 id="before-title" class="h2">Start with the facts <em>about you.</em></h2>
-          <p class="lede">Add your CV, the job description and the stories you want to tell, as files, screenshots or pasted text. EchoIdeal treats these Knowledge Documents as the only source of facts about you, and only the ones you switch on are used.</p>
+          <p class="lede">Add your CV, the job description and your stories as files, screenshots or pasted text. Only the documents you switch on are used.</p>
         </header>
 
         <div class="before-grid">
@@ -1185,10 +1184,9 @@ details.script ol{margin:10px 0 0;padding-left:20px;display:grid;gap:6px;color:v
           </div>
 
           <dl class="notes reveal">
-            <div><dt>Any format you have</dt><dd>Upload .md, .txt, PDF or image files (images are converted to text), or paste text straight in.</dd></div>
-            <div><dt>Active Knowledge only</dt><dd>Only switched-on documents are used. Keep a CV per role and flip between them before the call.</dd></div>
-            <div><dt>Searched Documents</dt><dd>A long handbook doesn’t have to fit. Only its best-matching passages go out with each question. This needs an optional embeddings provider.</dd></div>
-            <div><dt>A source, not a cage</dt><dd>Your documents are the only source of facts about you, but general and technical questions are still answered in full.</dd></div>
+            <div><dt>Any format you have</dt><dd>.md, .txt, PDF, images or pasted text.</dd></div>
+            <div><dt>Long documents welcome</dt><dd>A Searched Document sends only its best-matching passages. Needs an optional embeddings provider.</dd></div>
+            <div><dt>A source, not a cage</dt><dd>General and technical questions are still answered in full.</dd></div>
           </dl>
         </div>
       </section>
@@ -1198,34 +1196,34 @@ details.script ol{margin:10px 0 0;padding-left:20px;display:grid;gap:6px;color:v
         <header class="reveal">
           <p class="eyebrow"><span class="num">02</span> During the interview</p>
           <h2 id="during-title" class="h2">Keeps up with <em>both sides</em> of the conversation.</h2>
-          <p class="lede">EchoIdeal hears the Interviewer through your system audio and you through your microphone, and keeps a running memory of the Meeting, so every Suggested Answer fits what’s already been said.</p>
+          <p class="lede">It hears the Interviewer through your system audio and you through your mic, and remembers everything said so far.</p>
         </header>
 
         <div class="player" id="player">
           <div class="tablist" role="tablist" aria-label="Features during the interview">
             <button class="tab" type="button" role="tab" id="t-tx" aria-controls="p-tx" aria-selected="true" tabindex="0">
               <span class="tab-title"><svg class="ic" aria-hidden="true"><use href="#i-headphones"/></svg>Both sides, transcribed</span>
-              <span class="tab-desc">System audio is the Interviewer and your microphone is you. Voice activity detection keeps the transcript live.</span>
+              <span class="tab-desc">The Interviewer on system audio, you on the mic, transcribed live.</span>
               <span class="tab-bar" aria-hidden="true"><i></i></span>
             </button>
             <button class="tab" type="button" role="tab" id="t-echo" aria-controls="p-echo" aria-selected="false" tabindex="-1">
               <span class="tab-title"><svg class="ic" aria-hidden="true"><use href="#i-wave"/></svg>Echo, cancelled</span>
-              <span class="tab-desc">The Interviewer’s voice leaking from your speakers into your mic is cancelled, so it’s never mistaken for your answer.</span>
+              <span class="tab-desc">Their voice leaking into your mic is cancelled, so it’s never taken for yours.</span>
               <span class="tab-bar" aria-hidden="true"><i></i></span>
             </button>
             <button class="tab" type="button" role="tab" id="t-mem" aria-controls="p-mem" aria-selected="false" tabindex="-1">
               <span class="tab-title"><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Follow-ups remembered</span>
-              <span class="tab-desc">Meeting Memory keeps later answers consistent with everything said or shown so far.</span>
+              <span class="tab-desc">Later answers stay consistent with everything said so far.</span>
               <span class="tab-bar" aria-hidden="true"><i></i></span>
             </button>
             <button class="tab" type="button" role="tab" id="t-pr" aria-controls="p-pr" aria-selected="false" tabindex="-1">
               <span class="tab-title"><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>Private Requests</span>
-              <span class="tab-desc">Type a question mid-meeting. It uses your knowledge, but stays out of the Meeting record.</span>
+              <span class="tab-desc">Type a question mid-meeting. It stays out of the Meeting record.</span>
               <span class="tab-bar" aria-hidden="true"><i></i></span>
             </button>
             <button class="tab" type="button" role="tab" id="t-cap" aria-controls="p-cap" aria-selected="false" tabindex="-1">
               <span class="tab-title"><svg class="ic" aria-hidden="true"><use href="#i-camera"/></svg>Screen Capture &amp; Assessments</span>
-              <span class="tab-desc">Capture a coding problem and ask about it. In an Assessment, answers are solutions to submit.</span>
+              <span class="tab-desc">Capture a coding problem and get a solution to submit.</span>
               <span class="tab-bar" aria-hidden="true"><i></i></span>
             </button>
           </div>
@@ -1233,7 +1231,7 @@ details.script ol{margin:10px 0 0;padding-left:20px;display:grid;gap:6px;color:v
           <div class="pstage">
             <!-- Transcript -->
             <div class="pn is-active" role="tabpanel" id="p-tx" aria-labelledby="t-tx" tabindex="0">
-              <p class="pn-cap">System audio is the Interviewer and your microphone is you. Voice activity detection keeps the transcript live.</p>
+              <p class="pn-cap">The Interviewer on system audio, you on the mic, transcribed live.</p>
               <div class="mw">
                 <div class="mw-head">
                   <span><svg class="ic" aria-hidden="true"><use href="#i-zap"/></svg>Live transcript</span>
@@ -1252,7 +1250,7 @@ details.script ol{margin:10px 0 0;padding-left:20px;display:grid;gap:6px;color:v
 
             <!-- Echo -->
             <div class="pn" role="tabpanel" id="p-echo" aria-labelledby="t-echo" tabindex="0" hidden>
-              <p class="pn-cap">The Interviewer’s voice leaking from your speakers into your mic is cancelled, so it’s never mistaken for your answer.</p>
+              <p class="pn-cap">Their voice leaking into your mic is cancelled, so it’s never taken for yours.</p>
               <div class="mw">
                 <div class="mw-head"><span><svg class="ic" aria-hidden="true"><use href="#i-wave"/></svg>Echo cancellation</span><span class="echo-tag">Echo cancelled</span></div>
                 <div class="mw-body">
@@ -1276,7 +1274,7 @@ details.script ol{margin:10px 0 0;padding-left:20px;display:grid;gap:6px;color:v
 
             <!-- Memory -->
             <div class="pn" role="tabpanel" id="p-mem" aria-labelledby="t-mem" tabindex="0" hidden>
-              <p class="pn-cap">Meeting Memory keeps later answers consistent with everything said or shown so far.</p>
+              <p class="pn-cap">Later answers stay consistent with everything said so far.</p>
               <div class="mw">
                 <div class="mw-head"><span><svg class="ic" aria-hidden="true"><use href="#i-history"/></svg>Meeting Memory</span><span class="stamp">Interview · 18:30</span></div>
                 <div class="mw-body">
@@ -1297,7 +1295,7 @@ details.script ol{margin:10px 0 0;padding-left:20px;display:grid;gap:6px;color:v
 
             <!-- Private request -->
             <div class="pn" role="tabpanel" id="p-pr" aria-labelledby="t-pr" tabindex="0" hidden>
-              <p class="pn-cap">Type a question mid-meeting. It uses your knowledge, but stays out of the Meeting record.</p>
+              <p class="pn-cap">Type a question mid-meeting. It stays out of the Meeting record.</p>
               <div class="mw">
                 <div class="mw-head"><span><svg class="ic" aria-hidden="true"><use href="#i-lock"/></svg>Private Request</span><kbd><span data-mod>Ctrl</span>+Shift+I</kbd></div>
                 <div class="mw-body">
@@ -1322,7 +1320,7 @@ details.script ol{margin:10px 0 0;padding-left:20px;display:grid;gap:6px;color:v
 
             <!-- Screen capture -->
             <div class="pn" role="tabpanel" id="p-cap" aria-labelledby="t-cap" tabindex="0" hidden>
-              <p class="pn-cap">Capture a coding problem and ask about it. In an Assessment, answers are solutions to submit.</p>
+              <p class="pn-cap">Capture a coding problem and get a solution to submit.</p>
               <div class="cap">
                 <div class="cap-screen">
                   <div class="cap-top"><span>Fernway online test</span><span>Problem 2 of 3</span></div>
@@ -1360,9 +1358,7 @@ out: [[1,6],[8,10],[15,18]]</pre>
             <li><span class="combo"><kbd data-mod>Ctrl</kbd><kbd>\</kbd></span><span>Show or hide the overlay</span></li>
             <li><span class="combo"><kbd data-mod>Ctrl</kbd><kbd>Shift</kbd><kbd>M</kbd></span><span>Start or stop listening</span></li>
             <li><span class="combo"><kbd data-mod>Ctrl</kbd><kbd>Shift</kbd><kbd>S</kbd></span><span>Take a Screen Capture</span></li>
-            <li><span class="combo"><kbd data-mod>Ctrl</kbd><kbd>Shift</kbd><kbd>E</kbd></span><span>Capture and ask in one go</span></li>
             <li><span class="combo"><kbd data-mod>Ctrl</kbd><kbd>Shift</kbd><kbd>I</kbd></span><span>Type a Private Request</span></li>
-            <li><span class="combo"><kbd data-mod>Ctrl</kbd><kbd>←↑↓→</kbd></span><span>Move the overlay</span></li>
           </ul>
         </div>
       </section>
@@ -1372,7 +1368,7 @@ out: [[1,6],[8,10],[15,18]]</pre>
         <header class="reveal">
           <p class="eyebrow"><span class="num">03</span> After the interview</p>
           <h2 id="after-title" class="h2">Leave with a Recap, <em>not a blur.</em></h2>
-          <p class="lede">When the Interview ends, EchoIdeal writes down what you committed to (the facts, the numbers, the stories) and the topics the Interviewer kept coming back to. It’s saved as a Knowledge Document, ready for round two.</p>
+          <p class="lede">When it ends, EchoIdeal writes down what you committed to and what the Interviewer kept probing, saved as a Knowledge Document for round two.</p>
         </header>
 
         <div class="after-grid">
@@ -1437,10 +1433,8 @@ out: [[1,6],[8,10],[15,18]]</pre>
           </div>
 
           <dl class="notes reveal">
-            <div><dt>Commitments, not a transcript</dt><dd>A Recap is short on purpose: what you claimed, the numbers you used, the stories you told and what they pressed on.</dd></div>
-            <div><dt>Built for the next round</dt><dd>Recaps are Knowledge Documents. Switch one on and the second interview stays consistent with the first.</dd></div>
-            <div><dt>Assessments too</dt><dd>An Assessment Recap lists each problem and the solution you submitted.</dd></div>
-            <div><dt>Every other meeting</dt><dd>General Meetings get a Markdown summary with tables, code and diagrams, and your whole history stays on your machine.</dd></div>
+            <div><dt>Commitments, not a transcript</dt><dd>What you claimed, the numbers you used and what they pressed on.</dd></div>
+            <div><dt>Built for the next round</dt><dd>Switch a Recap on and round two stays consistent with round one.</dd></div>
           </dl>
         </div>
       </section>
@@ -1453,7 +1447,7 @@ out: [[1,6],[8,10],[15,18]]</pre>
       <div class="reveal">
         <p class="eyebrow"><span class="num">§</span> Privacy &amp; control</p>
         <h2 id="privacy-title" class="h2">Invisible to the call. <em>Open to inspection.</em></h2>
-        <p class="lede">Stealth isn’t the point of EchoIdeal, but your preparation is nobody else’s business. The overlay stays out of screen shares, nothing joins your meeting, and every line of code is public.</p>
+        <p class="lede">Your preparation is nobody else’s business. The overlay stays out of screen shares, no bot joins your call, and the code is open source.</p>
       </div>
 
       <div class="twin">
@@ -1481,10 +1475,10 @@ out: [[1,6],[8,10],[15,18]]</pre>
       </div>
 
       <ul class="pledger">
-        <li class="reveal"><svg class="ic" aria-hidden="true"><use href="#i-monitor"/></svg><h3>Hidden from screen shares</h3><p>The overlay floats above your other apps, but it isn’t captured in screen shares or recordings.</p></li>
-        <li class="reveal"><svg class="ic" aria-hidden="true"><use href="#i-botoff"/></svg><h3>No bot joins the call</h3><p>EchoIdeal listens to your computer’s audio. Nothing is added to the meeting’s participant list.</p></li>
-        <li class="reveal"><svg class="ic" aria-hidden="true"><use href="#i-db"/></svg><h3>History stays with you</h3><p>Meetings, Recaps and history are stored locally in SQLite, on your machine.</p></li>
-        <li class="reveal"><svg class="ic" aria-hidden="true"><use href="#i-cpu"/></svg><h3>Your model, your key</h3><p>Bring your own API key, or point it at a local model through Ollama.</p></li>
+        <li class="reveal"><svg class="ic" aria-hidden="true"><use href="#i-monitor"/></svg><h3>Hidden from screen shares</h3><p>Not captured in screen shares or recordings.</p></li>
+        <li class="reveal"><svg class="ic" aria-hidden="true"><use href="#i-botoff"/></svg><h3>No bot joins the call</h3><p>It listens to your computer’s audio instead.</p></li>
+        <li class="reveal"><svg class="ic" aria-hidden="true"><use href="#i-db"/></svg><h3>History stays with you</h3><p>Meetings and Recaps are stored locally in SQLite.</p></li>
+        <li class="reveal"><svg class="ic" aria-hidden="true"><use href="#i-cpu"/></svg><h3>Your model, your key</h3><p>Use your own API key, or a local model through Ollama.</p></li>
       </ul>
 
       <div class="providers reveal">
@@ -1541,7 +1535,7 @@ out: [[1,6],[8,10],[15,18]]</pre>
       <div class="faq-aside reveal">
         <p class="eyebrow"><span class="num">§</span> FAQ</p>
         <h2 id="faq-title" class="h2">Questions, answered <em>plainly.</em></h2>
-        <p>Something we haven’t covered? Once the GitHub repository is public, which is coming soon, you’ll be able to open an issue there.</p>
+        <p>Something missing? Once the GitHub repository is public, you can open an issue there.</p>
       </div>
       <div class="reveal">
         <details>
@@ -1590,7 +1584,7 @@ out: [[1,6],[8,10],[15,18]]</pre>
         <button class="btn btn-primary btn-lg is-soon" type="button" disabled><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg><span data-download-label>Download free</span><span class="soon">Coming soon</span></button>
         <button class="btn btn-ghost btn-lg is-soon" type="button" disabled><svg class="ic" aria-hidden="true"><use href="#i-github"/></svg><span>View source</span><span class="soon">Coming soon</span></button>
       </div>
-      <p class="cta-small">For Windows, macOS and Linux · Downloads are coming soon</p>
+      <p class="cta-small">Windows · macOS · Linux</p>
     </div>
   </section>
 </main>

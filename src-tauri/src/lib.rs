@@ -10,6 +10,7 @@ use tauri::{AppHandle, Manager, WebviewWindow};
 use tauri_plugin_posthog::{init as posthog_init, PostHogConfig, PostHogOptions};
 use tokio::task::JoinHandle;
 mod speaker;
+mod voices;
 use capture::CaptureState;
 use speaker::VadConfig;
 
@@ -126,6 +127,9 @@ pub fn run() {
             speaker::start_microphone_capture,
             speaker::stop_microphone_capture,
             speaker::get_microphone_echo_stats,
+            voices::voice_fingerprint,
+            voices::get_voice_model_status,
+            voices::download_voice_model,
         ])
         .setup(|app| {
             // Setup main window positioning

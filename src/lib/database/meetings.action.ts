@@ -1,4 +1,5 @@
 import { getDatabase } from "./config";
+import { base64ToVector, vectorToBase64 } from "../knowledge/embeddings";
 
 export type MeetingType = "interview" | "assessment" | "general";
 
@@ -47,6 +48,8 @@ export interface TranscriptSegment {
   id: string;
   meetingId: string;
   speaker: string;
+  // For the other side's lines: which Voice said it, when told apart.
+  voice: number | null;
   content: string;
   startTimeMs: number;
   endTimeMs: number | null;
@@ -76,6 +79,7 @@ interface DbSegment {
   id: string;
   meeting_id: string;
   speaker: string;
+  voice: number | null;
   content: string;
   start_time_ms: number;
   end_time_ms: number | null;
@@ -136,6 +140,7 @@ function mapDbSegment(row: DbSegment): TranscriptSegment {
     id: row.id,
     meetingId: row.meeting_id,
     speaker: row.speaker,
+    voice: row.voice ?? null,
     content: row.content,
     startTimeMs: row.start_time_ms,
     endTimeMs: row.end_time_ms,
@@ -277,17 +282,19 @@ export async function deleteMeeting(id: string): Promise<boolean> {
 }
 
 export async function addTranscriptSegment(
-  segment: Omit<TranscriptSegment, "createdAt">
+  segment: Omit<TranscriptSegment, "createdAt" | "voice"> & { voice?: number | null }
 ): Promise<TranscriptSegment> {
   const db = await getDatabase();
   const now = Date.now();
+  const voice = segment.voice ?? null;
 
   await db.execute(
-    "INSERT INTO transcript_segments (id, meeting_id, speaker, content, start_time_ms, end_time_ms, confidence, is_final, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "INSERT INTO transcript_segments (id, meeting_id, speaker, voice, content, start_time_ms, end_time_ms, confidence, is_final, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     [
       segment.id,
       segment.meetingId,
       segment.speaker,
+      voice,
       segment.content,
       segment.startTimeMs,
       segment.endTimeMs,
@@ -297,7 +304,70 @@ export async function addTranscriptSegment(
     ]
   );
 
-  return { ...segment, createdAt: now };
+  return { ...segment, voice, createdAt: now };
+}
+
+export async function setSegmentVoice(id: string, voice: number | null): Promise<void> {
+  const db = await getDatabase();
+  await db.execute("UPDATE transcript_segments SET voice = ? WHERE id = ?", [voice, id]);
+}
+
+export interface MeetingVoice {
+  voice: number;
+  // Sum of the fingerprints of its lines; its direction is the Voice's profile.
+  fingerprint: Float32Array;
+  lines: number;
+}
+
+export async function getMeetingVoices(meetingId: string): Promise<MeetingVoice[]> {
+  const db = await getDatabase();
+  const rows = await db.select<{ voice: number; fingerprint: string; lines: number }[]>(
+    "SELECT voice, fingerprint, lines FROM meeting_voices WHERE meeting_id = ? ORDER BY voice",
+    [meetingId]
+  );
+  return rows.map((row) => ({
+    voice: row.voice,
+    fingerprint: base64ToVector(row.fingerprint),
+    lines: row.lines,
+  }));
+}
+
+export async function saveMeetingVoice(meetingId: string, voice: MeetingVoice): Promise<void> {
+  const db = await getDatabase();
+  await db.execute(
+    "INSERT INTO meeting_voices (meeting_id, voice, fingerprint, lines) VALUES (?, ?, ?, ?) ON CONFLICT(meeting_id, voice) DO UPDATE SET fingerprint = excluded.fingerprint, lines = excluded.lines",
+    [meetingId, voice.voice, vectorToBase64(voice.fingerprint), voice.lines]
+  );
+}
+
+// Folds Voice `from` into `into`: its lines, and what they sound like.
+export async function mergeMeetingVoices(
+  meetingId: string,
+  from: number,
+  into: number
+): Promise<void> {
+  const db = await getDatabase();
+  const voices = await getMeetingVoices(meetingId);
+  const source = voices.find((v) => v.voice === from);
+  const target = voices.find((v) => v.voice === into);
+  await db.execute(
+    "UPDATE transcript_segments SET voice = ? WHERE meeting_id = ? AND voice = ?",
+    [into, meetingId, from]
+  );
+  if (source) {
+    const fingerprint = target
+      ? target.fingerprint.map((x, i) => x + source.fingerprint[i])
+      : source.fingerprint;
+    await saveMeetingVoice(meetingId, {
+      voice: into,
+      fingerprint,
+      lines: (target?.lines ?? 0) + source.lines,
+    });
+    await db.execute("DELETE FROM meeting_voices WHERE meeting_id = ? AND voice = ?", [
+      meetingId,
+      from,
+    ]);
+  }
 }
 
 export async function getSegmentsByMeetingId(
@@ -325,6 +395,7 @@ export async function updateSegmentContent(
 export async function deleteAllMeetings(): Promise<void> {
   const db = await getDatabase();
   await db.execute("DELETE FROM meeting_entries");
+  await db.execute("DELETE FROM meeting_voices");
   await db.execute("DELETE FROM transcript_segments");
   await db.execute("DELETE FROM meetings");
 }

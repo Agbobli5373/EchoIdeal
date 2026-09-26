@@ -14,6 +14,7 @@ export const STORAGE_KEYS = {
   SYSTEM_AUDIO_QUICK_ACTIONS: "system_audio_quick_actions",
   CUSTOMIZABLE: "customizable",
   ECHOIDEAL_API_ENABLED: "echoideal_api_enabled",
+  TELL_VOICES_APART: "tell_voices_apart",
   SHORTCUTS: "shortcuts",
   AUTOSTART_INITIALIZED: "autostart_initialized",
 

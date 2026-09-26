@@ -4,8 +4,9 @@ import { invoke } from "@tauri-apps/api/core";
 import { fetchSTT } from "@/lib/functions/stt.function";
 import { useApp } from "@/contexts";
 import { SPEECH_TO_TEXT_PROVIDERS } from "@/config";
-import { addTranscriptSegment } from "@/lib/database/meetings.action";
+import { addTranscriptSegment, setSegmentVoice } from "@/lib/database/meetings.action";
 import { heardFromSystem, wavDurationMs } from "@/lib/meeting/echo";
+import { prepareVoiceModel, voiceOf } from "@/lib/meeting/voices";
 
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
@@ -14,6 +15,7 @@ function generateId(): string {
 interface TranscriptionSegment {
   id: string;
   speaker: string;
+  voice: number | null;
   content: string;
   startTimeMs: number;
   endTimeMs: number | null;
@@ -82,6 +84,7 @@ export const useLiveTranscription = () => {
         const segment: TranscriptionSegment = {
           id: generateId(),
           speaker,
+          voice: null,
           content: transcription.trim(),
           startTimeMs: segmentStartMs,
           endTimeMs: Date.now() - meetingStartRef.current,
@@ -97,6 +100,12 @@ export const useLiveTranscription = () => {
           confidence: null,
           isFinal: true,
         });
+
+        // The other side's lines say which Voice spoke them.
+        if (speaker === "Them") {
+          segment.voice = await voiceOf(meetingId, audioBase64);
+          if (segment.voice !== null) await setSegmentVoice(segment.id, segment.voice);
+        }
 
         setLastSegment(segment);
         setSegmentCount((prev) => prev + 1);
@@ -145,6 +154,7 @@ export const useLiveTranscription = () => {
         unlistenRefs.current.push(unlistenSpeech);
 
         const outputDevice = selectedAudioDevices?.output?.id || "";
+        prepareVoiceModel();
         await invoke("start_system_audio_capture", {
           deviceId: outputDevice,
           vadConfig: {

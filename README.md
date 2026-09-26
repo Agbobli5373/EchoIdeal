@@ -86,3 +86,5 @@ cd src-tauri && cargo check
 ## License
 
 EchoIdeal is free software under the GNU General Public License v3.0; see [LICENSE](LICENSE).
+
+Telling voices apart uses the [WeSpeaker](https://github.com/wenet-e2e/wespeaker) ResNet34 voice model trained on [VoxCeleb](https://www.robots.ox.ac.uk/~vgg/data/voxceleb/), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). The app downloads it the first time it's needed.

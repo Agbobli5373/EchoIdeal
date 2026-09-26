@@ -21,6 +21,8 @@ import type { TYPE_PROVIDER } from "@/types";
 import { cleanAnswer, DISCREPANCY_OPEN, SCREEN_CLOSE, SCREEN_OPEN } from "./answer";
 import {
   MEETING_TYPE_LABELS,
+  hasSeveralVoices,
+  namedSpeaker,
   speakerLabel,
   withMeetingInstruction,
 } from "./meeting-type";
@@ -44,6 +46,8 @@ export interface MemoryItem {
   text: string;
   // For a Screen Capture: the Suggested Answer given for it.
   answer?: string;
+  // For the other side: who said it ("Interviewer 2 (Sarah)"), when not just the role.
+  speaker?: string;
 }
 
 // Chronological memory from the transcript and the stored entries (Private Requests are never
@@ -52,8 +56,12 @@ export interface MemoryItem {
 export function buildMemoryItems(
   segments: TranscriptSegment[],
   entries: MeetingEntry[],
-  excludeSegmentId?: string | null
+  excludeSegmentId?: string | null,
+  meeting?: Pick<Meeting, "type" | "speakerNames">
 ): MemoryItem[] {
+  const several = hasSeveralVoices(segments);
+  const speakerOf = (segment: TranscriptSegment) =>
+    meeting ? namedSpeaker(segment, several, meeting) : undefined;
   const suggestedBySegment = new Map<string, string>();
   const timeline: (
     | { timeMs: number; segment: TranscriptSegment }
@@ -95,7 +103,12 @@ export function buildMemoryItems(
     } else if (event.segment.speaker === "Them") {
       const suggested = suggestedBySegment.get(event.segment.id);
       unanswered.push({
-        question: { kind: "other", timeMs: event.timeMs, text: event.segment.content.trim() },
+        question: {
+          kind: "other",
+          timeMs: event.timeMs,
+          text: event.segment.content.trim(),
+          speaker: speakerOf(event.segment),
+        },
         standIn: suggested
           ? { kind: "suggested", timeMs: event.timeMs, text: suggested }
           : null,
@@ -121,7 +134,7 @@ function renderItem(item: MemoryItem, type: MeetingType): string {
   const { self, other } = roles(type);
   switch (item.kind) {
     case "other":
-      return `${other}: ${item.text}`;
+      return `${item.speaker ?? other}: ${item.text}`;
     case "self":
       return `${self}: ${item.text}`;
     case "suggested":
@@ -143,7 +156,7 @@ async function loadMemory(meetingId: string, excludeSegmentId?: string | null) {
   ]);
   if (!meeting) return null;
   const until = meeting.memorySummaryUntilMs ?? -1;
-  const items = buildMemoryItems(segments, entries, excludeSegmentId).filter(
+  const items = buildMemoryItems(segments, entries, excludeSegmentId, meeting).filter(
     (item) => item.timeMs > until
   );
   const tokens = items.reduce((sum, item) => sum + itemTokens(item, meeting.type), 0);
@@ -181,7 +194,7 @@ export async function renderMeetingRecord(
   const render = (items: MemoryItem[]) =>
     items.map((item) => renderItem(item, meeting.type)).join("\n");
 
-  const items = buildMemoryItems(segments, entries);
+  const items = buildMemoryItems(segments, entries, null, meeting);
   const total = items.reduce((sum, item) => sum + itemTokens(item, meeting.type), 0);
   if (total <= maxTokens) return render(items);
 

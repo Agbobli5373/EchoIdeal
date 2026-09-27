@@ -6,10 +6,16 @@ use tauri::window::{Effect, EffectsBuilder};
 use windows::Win32::UI::Input::KeyboardAndMouse::{
     VIRTUAL_KEY, VK_ESCAPE, VK_LWIN, VK_MENU, VK_Z,
 };
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{App, AppHandle, Manager, Runtime, WebviewWindow, WebviewWindowBuilder};
 
 // The offset from the top of the screen to the window
 const TOP_OFFSET: i32 = 54;
+
+// Set while the dashboard is being built. Tauri only rejects a second window
+// with the same label once the first is ready, so without this two quick opens
+// would each build a dashboard.
+static CREATING_DASHBOARD: AtomicBool = AtomicBool::new(false);
 
 /// Sets up the main window with custom positioning
 pub fn setup_main_window(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
@@ -195,7 +201,8 @@ fn is_windows_11() -> bool {
     unsafe { RtlGetVersion(&mut info) }.is_ok() && info.dwBuildNumber >= 22000
 }
 
-/// Creates the dashboard, hidden on Windows and Linux.
+/// Creates the dashboard, hidden on Windows and Linux, or returns `None` if
+/// another caller is already creating it.
 ///
 /// Never call this, or `show_dashboard_window` while the dashboard may not
 /// exist yet, from a synchronous command: on Windows those run inside
@@ -203,6 +210,17 @@ fn is_windows_11() -> bool {
 /// the callback returns, so the app freezes. Setup, a global shortcut's handler
 /// and async commands are fine.
 pub fn create_dashboard_window<R: Runtime>(
+    app: &AppHandle<R>,
+) -> Result<Option<WebviewWindow<R>>, tauri::Error> {
+    if CREATING_DASHBOARD.swap(true, Ordering::SeqCst) {
+        return Ok(None);
+    }
+    let window = build_dashboard_window(app);
+    CREATING_DASHBOARD.store(false, Ordering::SeqCst);
+    window.map(Some)
+}
+
+fn build_dashboard_window<R: Runtime>(
     app: &AppHandle<R>,
 ) -> Result<WebviewWindow<R>, tauri::Error> {
     let material = dashboard_material();
@@ -330,8 +348,12 @@ pub fn show_dashboard_window<R: Runtime>(app: &AppHandle<R>) -> Result<(), Strin
             .map_err(|e| format!("Failed to focus dashboard window: {}", e))?;
     } else {
         // Window doesn't exist, create it and then show it
-        let window = create_dashboard_window(app)
-            .map_err(|e| format!("Failed to create dashboard window: {}", e))?;
+        let Some(window) = create_dashboard_window(app)
+            .map_err(|e| format!("Failed to create dashboard window: {}", e))?
+        else {
+            // Already being created, by setup or another open that will show it.
+            return Ok(());
+        };
         window
             .show()
             .map_err(|e| format!("Failed to show new dashboard window: {}", e))?;

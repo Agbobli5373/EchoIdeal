@@ -105,13 +105,16 @@ pub fn set_screen_share_visibility(app: tauri::AppHandle, visible: bool) -> Resu
     Ok(())
 }
 
+// Both dashboard commands are async so they run off the main thread: they may
+// have to create the dashboard, which deadlocks inside a synchronous command on
+// Windows (see create_dashboard_window).
 #[tauri::command]
-pub fn open_dashboard(app: tauri::AppHandle) -> Result<(), String> {
+pub async fn open_dashboard(app: tauri::AppHandle) -> Result<(), String> {
     show_dashboard_window(&app)
 }
 
 #[tauri::command]
-pub fn toggle_dashboard(app: tauri::AppHandle) -> Result<(), String> {
+pub async fn toggle_dashboard(app: tauri::AppHandle) -> Result<(), String> {
     if let Some(dashboard_window) = app.get_webview_window("dashboard") {
         match dashboard_window.is_visible() {
             Ok(true) if !dashboard_window.is_minimized().unwrap_or(false) => {
@@ -192,6 +195,13 @@ fn is_windows_11() -> bool {
     unsafe { RtlGetVersion(&mut info) }.is_ok() && info.dwBuildNumber >= 22000
 }
 
+/// Creates the dashboard, hidden on Windows and Linux.
+///
+/// Never call this, or `show_dashboard_window` while the dashboard may not
+/// exist yet, from a synchronous command: on Windows those run inside
+/// WebView2's callback on the main thread, which can't create a webview until
+/// the callback returns, so the app freezes. Setup, a global shortcut's handler
+/// and async commands are fine.
 pub fn create_dashboard_window<R: Runtime>(
     app: &AppHandle<R>,
 ) -> Result<WebviewWindow<R>, tauri::Error> {

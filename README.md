@@ -83,7 +83,7 @@ You can change them all in **Shortcuts and Cursor**.
 
 - **On your computer:** your Meetings, transcripts, Recaps, chats and settings, in a local SQLite database. Voices are told apart on this computer too.
 - **Sent to the providers you choose:** audio goes to your speech-to-text provider. Your questions, Meeting Memory and Active Knowledge go to your AI provider; a Searched Document sends only its best-matching passages. When Web Search is on, search queries go to Tavily.
-- **Nothing else:** there's no EchoIdeal account or subscription, and you pay your providers directly for what you use.
+- **No account:** there's no EchoIdeal account or subscription, and you pay your providers directly for what you use.
 
 ## Building
 
@@ -102,7 +102,7 @@ npm install
 npx tauri dev
 ```
 
-`npx tauri dev` runs the front end and the Rust back end together. The first run compiles the Rust dependencies, which takes a few minutes.
+`npx tauri dev` runs the front end and the Rust back end together. The first run compiles the Rust dependencies, which takes a few minutes. For the front end alone, `npm run dev` starts the Vite dev server.
 
 ### Checks
 
@@ -121,7 +121,17 @@ That's a test build, for installers you only install yourself. See [Building and
 
 ## Contributing
 
-Issues and pull requests are welcome. Before a larger change, it helps to read:
+Issues and pull requests are welcome. The repository holds:
+
+| Folder | What's in it |
+|---|---|
+| `src/` | The front end: the overlay and the dashboard (React) |
+| `src-tauri/` | The back end: audio capture, windows, storage (Rust) |
+| `website/` | The landing page at [echo-ideal.vercel.app](https://echo-ideal.vercel.app) |
+| `cloud-backend/` | An optional backend for licensing and a hosted AI and speech proxy; the official releases don't use it |
+| `docs/` | Architecture, decision records and build notes |
+
+Before a larger change, it helps to read:
 
 - [Architecture](docs/ARCHITECTURE.md): how the overlay, the dashboard and the Rust back end fit together.
 - [CONTEXT.md](CONTEXT.md): the project's vocabulary (Meeting, Knowledge Document, Suggested Answer…), used in the code and the UI.

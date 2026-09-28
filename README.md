@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="src-tauri/icons/128x128@2x.png" width="96" alt="EchoIdeal logo">
+<img src="docs/assets/logo.svg" width="88" alt="EchoIdeal logo">
 
 # EchoIdeal
 

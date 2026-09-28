@@ -27,7 +27,8 @@ Tauri v2 on Linux requires: `libwebkit2gtk-4.1-dev`, `libjavascriptcoregtk-4.1-d
 ### Gotchas
 - Rust 1.94+ is required (the `tauri-plugin-machine-uid` crate uses edition 2024). The VM has been updated via `rustup update stable`.
 - The `tauri dev` command manages its own Vite server; do not start `npm run dev` separately before running `npx tauri dev` or port 1420 will conflict.
-- The build emits a signing key error at the end when creating updater artifacts; this is harmless for development.
+- The build emits a signing key error at the end when creating updater artifacts; this is harmless for development. `npx tauri build --config src-tauri/tauri.unsigned.conf.json` skips that step.
+- Keep `@tauri-apps/cli` on the same minor version as the `tauri` crate (`package.json` pins it with `~`). An older CLI can't write the installer type into the binary: the build warns `__TAURI_BUNDLE_TYPE variable not found`, and the updater then can't tell which installer the app came from.
 - `npm install` uses `--force` due to `.npmrc` containing `force=true` (needed for peer dependency conflicts with `@ricky0123/vad-react` requiring React 18 vs project's React 19).
 
 ## Agent skills

@@ -45,7 +45,7 @@ npx tauri dev
 
 ## Building
 
-A build compiles the app in release mode and packages it into installers. On Windows they land in `src-tauri/target/release/bundle/`:
+A build compiles the app in release mode and packages it into installers. On Windows they land in `src-tauri/target/release/bundle/` (or under `CARGO_TARGET_DIR` when it's set; see [Building outside OneDrive](#building-outside-onedrive)):
 
 - `msi/EchoIdeal_<version>_x64_en-US.msi`
 - `nsis/EchoIdeal_<version>_x64-setup.exe`
@@ -77,10 +77,23 @@ Remove-Item Env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD
 
 Each installer then gets a `.sig` file next to it; publishing an update needs both. Losing the key or its password means installed copies can't be updated: a new key needs a new `pubkey`, and everyone reinstalls once.
 
+### Building outside OneDrive
+
+If the repo is in a folder that OneDrive (or another sync client) syncs, build into a folder outside it. The sync client and antivirus open new files in `src-tauri/target` to upload or scan them. If that happens while the build is writing the installer type into the app, that installer ships without it, and the in-app updater can't tell how the app was installed.
+
+Set `CARGO_TARGET_DIR` in the terminal you build from, then run the test or release build as usual:
+
+```powershell
+$env:CARGO_TARGET_DIR = "$env:USERPROFILE\echoideal-target"
+```
+
+The installers then land in `%USERPROFILE%\echoideal-target\release\bundle\`, with their `.sig` files for a release build. The setting lasts until that terminal closes. The first build there compiles everything from scratch; later ones reuse it. `npx tauri dev` still uses `src-tauri/target` in any terminal without the variable.
+
 ### If the build fails
 
 - **`A public key has been found, but no private key`**: the installers were built; only the signing step failed, because the key isn't set. Use the test build, or sign it as above.
 - **`failed to remove file …\target\release\echoideal.exe` … `Access is denied`**: a copy of the app from an earlier build is still running, and Windows can't replace a running program. Quit it and build again.
+- **`Failed to add bundler type to the binary` … `being used by another process (os error 32)`**: something opened the app while the build was writing the installer type into it, usually OneDrive or antivirus. The installer was still built, but without its type; don't publish it. [Build outside OneDrive](#building-outside-onedrive) and build again.
 
 ## Optional: Cloud Backend (Licensing + Hosted AI/STT Proxy)
 

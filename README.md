@@ -41,14 +41,30 @@ npm install
 
 # Run in development mode (frontend + backend)
 npx tauri dev
-
-# Build for production
-npx tauri build
 ```
 
-### Signing releases
+## Building
 
-Release builds are signed so the in-app updater accepts them: it only installs updates signed with the key whose public half is `plugins.updater.pubkey` in `src-tauri/tauri.conf.json`. The private key and its password are kept by the maintainer, outside the repo. Without them, `npx tauri build` still produces the installers, then fails at the updater signing step.
+A build compiles the app in release mode and packages it into installers. On Windows they land in `src-tauri/target/release/bundle/`:
+
+- `msi/EchoIdeal_<version>_x64_en-US.msi`
+- `nsis/EchoIdeal_<version>_x64-setup.exe`
+
+On Linux the same folder gets `.deb`, `.rpm` and `.AppImage` packages instead. The first build takes several minutes; later ones reuse what's already compiled.
+
+### Test build
+
+For installers you only install yourself, skip the updater signing step, which needs the signing key:
+
+```bash
+npx tauri build --config src-tauri/tauri.unsigned.conf.json
+```
+
+These installers run normally, but can't be published as an update: the in-app updater only accepts signed ones.
+
+### Release build
+
+Release builds are signed so the in-app updater accepts them: it only installs updates signed with the key whose public half is `plugins.updater.pubkey` in `src-tauri/tauri.conf.json`. The private key and its password are kept by the maintainer, outside the repo.
 
 To sign, point the build at the key and give it the password, in the terminal you build from (PowerShell):
 
@@ -59,7 +75,12 @@ npx tauri build
 Remove-Item Env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD
 ```
 
-Each installer then gets a `.sig` file next to it. Losing the key or its password means installed copies can't be updated: a new key needs a new `pubkey`, and everyone reinstalls once.
+Each installer then gets a `.sig` file next to it; publishing an update needs both. Losing the key or its password means installed copies can't be updated: a new key needs a new `pubkey`, and everyone reinstalls once.
+
+### If the build fails
+
+- **`A public key has been found, but no private key`**: the installers were built; only the signing step failed, because the key isn't set. Use the test build, or sign it as above.
+- **`failed to remove file …\target\release\echoideal.exe` … `Access is denied`**: a copy of the app from an earlier build is still running, and Windows can't replace a running program. Quit it and build again.
 
 ## Optional: Cloud Backend (Licensing + Hosted AI/STT Proxy)
 

@@ -94,15 +94,9 @@ kbd{display:inline-block;font:500 11.5px/1.3 var(--mono);padding:2px 6px;border-
 .btn-ghost:hover{background:var(--ink);color:var(--paper)}
 .btn-lg{padding:17px 24px;font-size:16px}
 .btn-sm{padding:10px 14px;font-size:14px;border-radius:10px}
-@media (max-width:420px){.btn-lg{padding:16px 18px}.btn.is-soon{flex-wrap:wrap;row-gap:8px}}
-/* Not released yet: downloads and the public repository are coming soon */
+@media (max-width:420px){.btn-lg{padding:16px 18px}}
+/* Not released yet: macOS and Linux downloads (footer) */
 .soon{font:600 10.5px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;padding:4px 7px;border-radius:6px;background:var(--paper-2);color:var(--ink-2);white-space:nowrap}
-.btn.is-soon{cursor:default}
-.btn-primary.is-soon{box-shadow:0 1px 0 rgba(255,255,255,.25) inset}
-.btn-primary.is-soon:hover{background:var(--indigo);transform:none}
-.btn-primary .soon{background:rgba(0,0,0,.22);color:#fff}
-.btn-ghost.is-soon{border-color:var(--rule);color:var(--ink-2)}
-.btn-ghost.is-soon:hover{background:transparent;color:var(--ink-2)}
 
 /* ---------- Nav ----------
    A floating bar: flush with the page at the top, lifted into a frosted capsule once
@@ -703,8 +697,6 @@ details.script ol{margin:10px 0 0;padding-left:20px;display:grid;gap:6px;color:v
 .providers .pv{border:1px solid rgba(255,255,255,.2);border-radius:99px;padding:6px 12px;font-size:13.5px;color:#e6e6f0}
 .band-link{display:inline-flex;align-items:center;gap:8px;margin-top:28px;color:#fff;font-weight:600;text-decoration:underline;text-decoration-color:rgba(154,161,255,.6);text-underline-offset:4px}
 .band-link:hover{text-decoration-color:#9aa1ff}
-.band-link.is-soon{text-decoration:none;color:#dcdcf0}
-.band-link .soon{background:rgba(255,255,255,.12);color:#fff}
 .band-ink :focus-visible{outline-color:#9aa1ff}
 
 /* ---------- Use cases ---------- */
@@ -855,14 +847,13 @@ details.script ol{margin:10px 0 0;padding-left:20px;display:grid;gap:6px;color:v
           <svg class="ic i-sun" aria-hidden="true"><use href="#i-sun"/></svg>
           <svg class="ic i-moon" aria-hidden="true"><use href="#i-moon"/></svg>
         </button>
-        <span class="nav-gh" role="img" aria-label="GitHub repository, coming soon" data-tip="Source · coming soon">
+        <a class="nav-gh" href="https://github.com/Agbobli5373/EchoIdeal" rel="noopener" aria-label="Source on GitHub" data-tip="Source on GitHub">
           <svg class="ic" aria-hidden="true"><use href="#i-github"/></svg>
-        </span>
-        <button class="btn btn-primary btn-sm is-soon nav-dl" type="button" disabled aria-label="Download, coming soon">
+        </a>
+        <a class="btn btn-primary btn-sm nav-dl" href="https://github.com/Agbobli5373/EchoIdeal/releases/latest/download/EchoIdeal_x64-setup.exe" aria-label="Download for Windows">
           <svg class="ic" aria-hidden="true"><use href="#i-download"/></svg>
           <span>Download</span>
-          <span class="soon">Soon</span>
-        </button>
+        </a>
         <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-sheet">
           <span class="nav-toggle-lines" aria-hidden="true"><i></i><i></i></span>
           <span class="nav-toggle-t">Menu</span>
@@ -887,17 +878,15 @@ details.script ol{margin:10px 0 0;padding-left:20px;display:grid;gap:6px;color:v
       </ul>
     </nav>
     <div class="sheet-foot">
-      <button class="btn btn-primary btn-lg is-soon" type="button" disabled>
+      <a class="btn btn-primary btn-lg" href="https://github.com/Agbobli5373/EchoIdeal/releases/latest/download/EchoIdeal_x64-setup.exe">
         <svg class="ic" aria-hidden="true"><use href="#i-download"/></svg>
-        <span data-download-label>Download free</span>
-        <span class="soon">Coming soon</span>
-      </button>
-      <button class="btn btn-ghost btn-lg is-soon" type="button" disabled>
+        <span>Download for Windows</span>
+      </a>
+      <a class="btn btn-ghost btn-lg" href="https://github.com/Agbobli5373/EchoIdeal" rel="noopener">
         <svg class="ic" aria-hidden="true"><use href="#i-github"/></svg>
         <span>View source</span>
-        <span class="soon">Coming soon</span>
-      </button>
-      <p class="sheet-meta">Windows · macOS · Linux · GPL-3.0</p>
+      </a>
+      <p class="sheet-meta">Windows 10 and 11 · macOS and Linux soon · GPL-3.0</p>
     </div>
   </div>
 </header>
@@ -907,22 +896,20 @@ details.script ol{margin:10px 0 0;padding-left:20px;display:grid;gap:6px;color:v
   <!-- ================= HERO ================= -->
   <section class="hero" aria-labelledby="hero-title">
     <div class="wrap">
-      <p class="masthead"><span>The honest interview copilot</span><span>Windows · macOS · Linux</span><span>Free &amp; open source · GPL-3.0</span></p>
+      <p class="masthead"><span>The honest interview copilot</span><span>Windows · macOS and Linux soon</span><span>Free &amp; open source · GPL-3.0</span></p>
       <h1 id="hero-title" class="display">Answers you can <span class="scribble"><em>stand behind.</em><svg viewBox="0 0 400 24" preserveAspectRatio="none" aria-hidden="true"><path pathLength="1" d="M4 15 C 90 5, 190 21, 282 11 S 380 8, 396 13"/></svg></span></h1>
       <div class="hero-foot">
         <p class="hero-sub">EchoIdeal listens to both sides of your interview and suggests what to say next, <strong>built from your CV, the job description and your stories.</strong> If it doesn’t know something about you, it says so.</p>
         <div class="hero-cta">
           <div class="hero-actions">
-            <button class="btn btn-primary btn-lg is-soon" type="button" disabled>
+            <a class="btn btn-primary btn-lg" href="https://github.com/Agbobli5373/EchoIdeal/releases/latest/download/EchoIdeal_x64-setup.exe">
               <svg class="ic" aria-hidden="true"><use href="#i-download"/></svg>
-              <span data-download-label>Download free</span>
-              <span class="soon">Coming soon</span>
-            </button>
-            <button class="btn btn-ghost btn-lg is-soon" type="button" disabled>
+              <span>Download for Windows</span>
+            </a>
+            <a class="btn btn-ghost btn-lg" href="https://github.com/Agbobli5373/EchoIdeal" rel="noopener">
               <svg class="ic" aria-hidden="true"><use href="#i-github"/></svg>
               <span>View source</span>
-              <span class="soon">Coming soon</span>
-            </button>
+            </a>
           </div>
           <ul class="trust">
             <li>Free forever, GPL-3.0</li>
@@ -1485,7 +1472,7 @@ out: [[1,6],[8,10],[15,18]]</pre>
         <span>Works with</span>
         <span class="pv">OpenAI</span><span class="pv">Claude</span><span class="pv">Gemini</span><span class="pv">Grok</span><span class="pv">Ollama</span><span class="pv">Custom providers</span>
       </div>
-      <p class="band-link is-soon"><svg class="ic" aria-hidden="true"><use href="#i-github"/></svg>The full source, on GitHub <span class="soon">Coming soon</span></p>
+      <a class="band-link" href="https://github.com/Agbobli5373/EchoIdeal" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-github"/></svg>The full source, on GitHub</a>
     </div>
   </section>
 
@@ -1535,7 +1522,7 @@ out: [[1,6],[8,10],[15,18]]</pre>
       <div class="faq-aside reveal">
         <p class="eyebrow"><span class="num">§</span> FAQ</p>
         <h2 id="faq-title" class="h2">Questions, answered <em>plainly.</em></h2>
-        <p>Something missing? Once the GitHub repository is public, you can open an issue there.</p>
+        <p>Something missing? <a href="https://github.com/Agbobli5373/EchoIdeal/issues" rel="noopener">Open an issue on GitHub</a>.</p>
       </div>
       <div class="reveal">
         <details>
@@ -1568,7 +1555,7 @@ out: [[1,6],[8,10],[15,18]]</pre>
         </details>
         <details>
           <summary>Which platforms does it run on?<span class="pm" aria-hidden="true"></span></summary>
-          <div class="a"><p>Windows, macOS and Linux. Builds are published on GitHub Releases. If there isn’t one for your platform yet, the README explains how to build from source with Node.js and Rust.</p></div>
+          <div class="a"><p>Windows 10 and 11 for now: download the installer from <a href="https://github.com/Agbobli5373/EchoIdeal/releases/latest" rel="noopener">GitHub Releases</a>, and it keeps itself up to date. macOS and Linux builds are coming; until then, the <a href="https://github.com/Agbobli5373/EchoIdeal#building" rel="noopener">README</a> explains how to build from source with Node.js and Rust.</p><p>The installer isn’t code-signed yet, so Windows may say “Windows protected your PC”. Choose <strong>More info</strong>, then <strong>Run anyway</strong>.</p></div>
         </details>
       </div>
     </div>
@@ -1581,10 +1568,10 @@ out: [[1,6],[8,10],[15,18]]</pre>
       <h2 id="cta-title" class="h2">Tell your own story, <em>well.</em></h2>
       <p class="cta-sub">Free and open source. Bring your own key or run a local model. Your history stays on your machine.</p>
       <div class="cta-actions">
-        <button class="btn btn-primary btn-lg is-soon" type="button" disabled><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg><span data-download-label>Download free</span><span class="soon">Coming soon</span></button>
-        <button class="btn btn-ghost btn-lg is-soon" type="button" disabled><svg class="ic" aria-hidden="true"><use href="#i-github"/></svg><span>View source</span><span class="soon">Coming soon</span></button>
+        <a class="btn btn-primary btn-lg" href="https://github.com/Agbobli5373/EchoIdeal/releases/latest/download/EchoIdeal_x64-setup.exe"><svg class="ic" aria-hidden="true"><use href="#i-download"/></svg><span>Download for Windows</span></a>
+        <a class="btn btn-ghost btn-lg" href="https://github.com/Agbobli5373/EchoIdeal" rel="noopener"><svg class="ic" aria-hidden="true"><use href="#i-github"/></svg><span>View source</span></a>
       </div>
-      <p class="cta-small">Windows · macOS · Linux</p>
+      <p class="cta-small">Windows 10 and 11 · macOS and Linux soon</p>
     </div>
   </section>
 </main>
@@ -1601,12 +1588,12 @@ out: [[1,6],[8,10],[15,18]]</pre>
         <ul><li><a href="#demo">Demo</a></li><li><a href="#before">How it works</a></li><li><a href="#privacy">Privacy</a></li><li><a href="#faq">FAQ</a></li></ul>
       </nav>
       <nav aria-labelledby="f-download">
-        <h2 id="f-download">Download <span class="soon">Coming soon</span></h2>
-        <ul><li class="is-soon">Windows</li><li class="is-soon">macOS</li><li class="is-soon">Linux</li></ul>
+        <h2 id="f-download">Download</h2>
+        <ul><li><a href="https://github.com/Agbobli5373/EchoIdeal/releases/latest/download/EchoIdeal_x64-setup.exe">Windows</a></li><li class="is-soon">macOS <span class="soon">Soon</span></li><li class="is-soon">Linux <span class="soon">Soon</span></li></ul>
       </nav>
       <nav aria-labelledby="f-open">
-        <h2 id="f-open">Open source <span class="soon">Coming soon</span></h2>
-        <ul><li class="is-soon">Source code</li><li class="is-soon">Report an issue</li><li class="is-soon">Build from source</li><li><a href="https://www.gnu.org/licenses/gpl-3.0.html" rel="noopener">GPL-3.0 licence</a></li></ul>
+        <h2 id="f-open">Open source</h2>
+        <ul><li><a href="https://github.com/Agbobli5373/EchoIdeal" rel="noopener">Source code</a></li><li><a href="https://github.com/Agbobli5373/EchoIdeal/issues" rel="noopener">Report an issue</a></li><li><a href="https://github.com/Agbobli5373/EchoIdeal#building" rel="noopener">Build from source</a></li><li><a href="https://www.gnu.org/licenses/gpl-3.0.html" rel="noopener">GPL-3.0 licence</a></li></ul>
       </nav>
     </div>
     <div class="foot-bottom">
@@ -1627,15 +1614,13 @@ out: [[1,6],[8,10],[15,18]]</pre>
   const I = (n) => `<svg class="ic" aria-hidden="true"><use href="#i-${n}"/></svg>`;
   const mk = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
 
-  /* ---- Platform: download label + modifier key ---- */
+  /* ---- Platform: modifier key ---- */
   const ua = navigator.userAgent || '';
   const plat = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
-  const mobile = /Android|iPhone|iPad|iPod/i.test(ua) || (navigator.maxTouchPoints > 1 && /Mac/.test(plat));
   let os = null;
   if (/mac/i.test(plat) || /Mac OS X/.test(ua)) os = 'macOS';
   else if (/win/i.test(plat) || /Windows/.test(ua)) os = 'Windows';
   else if (/linux|x11/i.test(plat + ' ' + ua)) os = 'Linux';
-  if (os && !mobile) $$('[data-download-label]').forEach((el) => { el.textContent = `Download for ${os}`; });
   if (os === 'macOS') $$('[data-mod]').forEach((el) => { el.textContent = '⌘'; });
 
   /* ---- Nav: floating bar, active section, phone menu ---- */

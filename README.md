@@ -7,6 +7,12 @@ This repo contains:
 - The **desktop app** (React + Tauri): `src/`, `src-tauri/`
 - An **optional cloud backend** for licensing + hosted AI/STT proxy: `cloud-backend/`
 
+## Download
+
+EchoIdeal is free. The Windows installer is on the [latest release](https://github.com/Agbobli5373/EchoIdeal/releases/latest): download **`EchoIdeal_x64-setup.exe`** and run it. Once installed, the app updates itself from new releases. macOS and Linux builds are planned.
+
+The installer isn't code-signed yet, so Windows SmartScreen may say "Windows protected your PC". Choose **More info**, then **Run anyway**.
+
 ## Features
 
 - **Undetectable Overlay** — Translucent window that floats over applications, hidden in screen shares and recordings
@@ -76,6 +82,19 @@ Remove-Item Env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD
 ```
 
 Each installer then gets a `.sig` file next to it; publishing an update needs both. Losing the key or its password means installed copies can't be updated: a new key needs a new `pubkey`, and everyone reinstalls once.
+
+### Publishing a release
+
+Releases are built by GitHub Actions ([`.github/workflows/release.yml`](.github/workflows/release.yml)), so nobody has to build or upload installers by hand. The workflow signs with the repository secrets `TAURI_SIGNING_PRIVATE_KEY` (the contents of the key file) and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`.
+
+1. Set the new version in `package.json`, `src-tauri/tauri.conf.json` and `src-tauri/Cargo.toml`, and merge it to `main`.
+2. Tag that commit and push the tag:
+   ```bash
+   git tag v0.2.0
+   git push origin v0.2.0
+   ```
+3. The workflow builds `EchoIdeal_x64-setup.exe` and `EchoIdeal_x64.msi`, their `.sig` files and the updater's `latest.json`, and puts them in a **draft** release. It stops if the tag doesn't match the version.
+4. Check the draft on GitHub, then publish it. Installed copies look for updates at `releases/latest/download/latest.json`, so they only see a release once it's published.
 
 ### Building outside OneDrive
 

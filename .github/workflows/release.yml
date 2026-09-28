@@ -1,0 +1,56 @@
+name: Release
+
+# Pushing a version tag (for example v0.2.0) builds the Windows installers, signs
+# them for the in-app updater, and uploads them with the updater's latest.json to
+# a draft release. Publishing the draft is what makes them the latest release.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check the tag matches the app version
+        if: github.ref_type == 'tag'
+        shell: bash
+        run: |
+          version=$(node -p "require('./src-tauri/tauri.conf.json').version")
+          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} doesn't match the version in tauri.conf.json (${version})."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - run: npm ci
+
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: v__VERSION__
+          releaseName: EchoIdeal v__VERSION__
+          releaseBody: See the assets below. Download EchoIdeal_x64-setup.exe to install EchoIdeal on Windows.
+          releaseDraft: true
+          # Names without the version, so releases/latest/download/EchoIdeal_x64-setup.exe
+          # always points at the newest installer.
+          releaseAssetNamePattern: "[name]_[arch][setup][ext]"
+          # The landing page offers the NSIS installer, so the updater prefers it too.
+          updaterJsonPreferNsis: true

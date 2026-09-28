@@ -378,8 +378,8 @@ html.menu-lock{overflow:hidden}
 @media (min-width:760px){.dc-num{display:inline;margin-right:8px}.dc-label{display:inline}.dc-sub{display:block}}
 .dc-step[aria-current="step"]{color:var(--ink)}
 .dc-step:hover{color:var(--ink)}
-.demo figcaption{margin-top:18px;padding-top:14px;border-top:1px solid var(--rule);font-size:13.5px;color:var(--ink-3);display:grid;gap:10px}
-.demo figcaption p{max-width:62em}
+.demo figcaption,.uc-video figcaption{margin-top:18px;padding-top:14px;border-top:1px solid var(--rule);font-size:13.5px;color:var(--ink-3);display:grid;gap:10px}
+.demo figcaption p,.uc-video figcaption p{max-width:62em}
 .fig-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 24px}
 .theme-toggle{display:none;align-items:center;gap:10px;font:500 11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
 .js .theme-toggle{display:inline-flex}
@@ -720,6 +720,9 @@ details.script ol{margin:10px 0 0;padding-left:20px;display:grid;gap:6px;color:v
 .uc-card dd{margin:0;color:var(--ink-2)}
 .uc-note{margin-top:6px;padding:12px 14px;border-radius:10px;background:var(--indigo-50);color:var(--indigo-700);font-size:14.5px;font-weight:500}
 .uc-note:empty{display:none}
+/* The meeting video: a General Meeting from start to summary, in the dashboard */
+.uc-video{margin-top:clamp(48px,7vw,88px)}
+.uc-video video{display:block;width:100%;height:auto;aspect-ratio:16/9;border-radius:18px;border:1px solid var(--rule);background:#111115;box-shadow:0 30px 60px -48px rgba(var(--shadow-rgb),.5)}
 
 /* ---------- FAQ ---------- */
 .faq{padding-block:clamp(80px,11vw,150px);border-top:1px solid var(--rule)}
@@ -1513,6 +1516,23 @@ out: [[1,6],[8,10],[15,18]]</pre>
           <p class="uc-note" id="uc-note"></p>
         </div>
       </div>
+      <figure class="uc-video reveal">
+        <video controls playsinline preload="none" width="1920" height="1080" poster="media/meeting-demo.jpg" aria-describedby="uc-video-cap">
+          <source src="media/meeting-demo.mp4" type="video/mp4">
+        </video>
+        <figcaption>
+          <p id="uc-video-cap"><span class="fig">Fig. 2</span>A scripted General Meeting in EchoIdeal’s dashboard, from start to summary. The people and the meeting are invented, and the clock and the wait for the summary are sped up.</p>
+          <details class="script">
+            <summary>Read what happens</summary>
+            <ol>
+              <li><strong>Start a meeting.</strong> New Meeting, a title, then Start Transcription.</li>
+              <li><strong>Both sides, transcribed.</strong> Them on system audio and you on the mic. The two people on the other side are told apart as Them 1 and Them 2.</li>
+              <li><strong>Ask the AI mid-meeting.</strong> A Private Request in AI Chat, “Who owns what, and by when?”, answered from what’s been said so far.</li>
+              <li><strong>End it, get the summary.</strong> Press End and the Summary tab fills in: an overview, key topics, decisions, an Action Items table and follow-up questions.</li>
+            </ol>
+          </details>
+        </figcaption>
+      </figure>
     </div>
   </section>
 

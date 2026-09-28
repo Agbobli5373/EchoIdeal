@@ -52,7 +52,7 @@
     },
     "updater": {
       "endpoints": ["https://echoideal.com/api/update"],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY2RDJBNUFFM0ZCREEyQjEKUldTeG9yMC9ycVhTWmlBRkovV2N5L3RudDhTTHFzM3QxSkF0R0doRGtvSUJKWktpdGp4cWRhcmcK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDQ5MDg2NDgzRUFBNTkzNDcKUldSSGs2WHFnMlFJU1VHdjdabFZqclhGSUVWL1QyWHdCOUNxSnc4ajd6cU5zdU1GSXFOK2hmazgK",
       "windows": {
         "installMode": "passive"
       }

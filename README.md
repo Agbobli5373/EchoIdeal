@@ -46,6 +46,21 @@ npx tauri dev
 npx tauri build
 ```
 
+### Signing releases
+
+Release builds are signed so the in-app updater accepts them: it only installs updates signed with the key whose public half is `plugins.updater.pubkey` in `src-tauri/tauri.conf.json`. The private key and its password are kept by the maintainer, outside the repo. Without them, `npx tauri build` still produces the installers, then fails at the updater signing step.
+
+To sign, point the build at the key and give it the password, in the terminal you build from (PowerShell):
+
+```powershell
+$env:TAURI_SIGNING_PRIVATE_KEY = "$env:USERPROFILE\.tauri\echoideal.key"
+$env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = [Net.NetworkCredential]::new('', (Read-Host 'Signing key password' -AsSecureString)).Password
+npx tauri build
+Remove-Item Env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+```
+
+Each installer then gets a `.sig` file next to it. Losing the key or its password means installed copies can't be updated: a new key needs a new `pubkey`, and everyone reinstalls once.
+
 ## Optional: Cloud Backend (Licensing + Hosted AI/STT Proxy)
 
 EchoIdeal can be built to use a cloud backend for licensing plus hosted AI/STT proxying (without persisting user content).
